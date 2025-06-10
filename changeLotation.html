@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <style>
+        #paper {
+            position:absolute;
+            top:100px;
+            left:100px;
+            width:150px;
+            height:200px;
+            background:red;
+        }
+        #paper.a1 {
+            top:200px;
+            left:200px;
+        }
+        #paper.a2 {
+            top:300px;
+            left:300px;
+        }
+        #paper.a3 {
+            top:400px;
+            left:400px;
+        }
+        #paper.a4 {
+            top:500px;
+            left:500px;
+        }
+    </style>
+</head>
+<body>
+    <div id="paper"></div>
+    <div class="answer">
+        <button class="a1">정답1</button>
+        <button class="a2">정답2</button>
+        <button class="a3">정답3</button>
+        <button class="a4">정답4</button>
+    </div>
+
+<script>
+    let buttons = document.querySelectorAll('.answer button')
+    let paper = document.getElementById('paper')
+
+    // paper 에 class 로 위치를 제어 => 클릭한 btn 과 동일한 class 부여
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            let btnClass = btn.className
+            paper.classList.add(btnClass)
+        })
+    })
+</script>
+</body>
+</html>
