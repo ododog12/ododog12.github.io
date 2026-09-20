@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EXP_02</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #FED11E;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #three-canvas {
+            position: fixed;
+            inset: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #start-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FED11E;
+            transition: opacity 0.9s ease;
+        }
+
+        #start-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #start-btn {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 2.5rem;
+            font-weight: 400;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: #000;
+            font-weight: bold;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 16px 4px;
+            transition: color 0.3s ease;
+            user-select: none;
+        }
+
+        #start-btn:hover {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="three-canvas"></canvas>
+
+    <div id="start-screen">
+        <button id="start-btn" onclick="startExperience()">start</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // ════════════════════════════════════════════════════
+        //  AUDIO
+        // ════════════════════════════════════════════════════
+        let analyser, dataArray;
+        let rawVol = 0;
+        let vol = 0;   // smoothed
+
+        async function startExperience() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = ctx.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.55;
+                ctx.createMediaStreamSource(stream).connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            } catch {
+                alert('마이크 접근 권한이 필요합니다.');
+                return;
+            }
+            document.getElementById('start-screen').classList.add('hidden');
+        }
+
+        function sampleVol() {
+            if (!analyser) return 0;
+            analyser.getByteFrequencyData(dataArray);
+            let s = 0;
+            for (let i = 0; i < dataArray.length; i++) s += dataArray[i];
+            return Math.min(s / dataArray.length / 105, 1);
+        }
+
+        // ════════════════════════════════════════════════════
+        //  RENDERER
+        // ════════════════════════════════════════════════════
+        const canvas = document.getElementById('three-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0xebebeb, 1);
+        renderer.physicallyCorrectLights = true;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xFED11E);
+
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0.3, 8);
+        camera.lookAt(0, 0, 0);
+
+        // ── Environment map (simple cube camera approximation for glass) ──
+        // Build a tiny manual CubeRenderTarget so transmission works
+        const cubeRT = new THREE.WebGLCubeRenderTarget(128, {
+            format: THREE.RGBFormat,
+            generateMipmaps: true,
+            minFilter: THREE.LinearMipmapLinearFilter,
+        });
+        const cubeCamera = new THREE.CubeCamera(0.1, 100, cubeRT);
+        scene.add(cubeCamera);
+
+        // ════════════════════════════════════════════════════
+        //  LIGHTS  (neutral, sculptural)
+        // ════════════════════════════════════════════════════
+        // Hemisphere — sky/ground
+        scene.add(new THREE.HemisphereLight(0xf4f6fa, 0xd0d4dc, 0.7));
+
+        // Main key — soft white from upper-left
+        const key = new THREE.DirectionalLight(0xffffff, 1.8);
+        key.position.set(-3, 6, 5);
+        scene.add(key);
+
+        // Soft fill — right side, slightly warm
+        const fill = new THREE.DirectionalLight(0xf0ece8, 0.55);
+        fill.position.set(5, 1, 2);
+        scene.add(fill);
+
+        // Rim — behind, cool
+        const rim = new THREE.DirectionalLight(0xdce8f4, 0.4);
+        rim.position.set(0, -4, -5);
+        scene.add(rim);
+
+        // ════════════════════════════════════════════════════
+        //  GLASS / SILICONE MATERIAL
+        // ════════════════════════════════════════════════════
+        // MeshPhysicalMaterial with high transmission for glass look
+        // r128 supports transmission
+        const mat = new THREE.MeshPhysicalMaterial({
+            color: 0xff0000,
+            roughness: 0.06,
+            metalness: 0.0,
+            transmission: 0,
+            thickness: 1.8,
+            ior: 1.46,
+            transparent: true,
+            opacity: 0.94,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.08,
+            envMap: cubeRT.texture,
+            envMapIntensity: 0.9,
+        });
+
+        // ════════════════════════════════════════════════════
+        //  BEAR GEOMETRY
+        // ════════════════════════════════════════════════════
+        const bear = new THREE.Group();
+        scene.add(bear);
+
+        function part(geo, x, y, z, sx = 1, sy = 1, sz = 1, rx = 0, ry = 0, rz = 0) {
+            const m = new THREE.Mesh(geo, mat);
+            m.position.set(x, y, z);
+            m.scale.set(sx, sy, sz);
+            m.rotation.set(rx, ry, rz);
+            bear.add(m);
+            return m;
+        }
+
+        const S = n => new THREE.SphereGeometry(n, 72, 72);
+
+        // Body
+        part(S(0.90), 0, -0.08, 0, 1.00, 1.22, 0.88);
+        // Head
+        part(S(0.65), 0, 1.10, 0, 1.00, 1.05, 0.93);
+        // Ears
+        part(S(0.22), -0.46, 1.60, 0, 1.00, 0.90, 0.65);
+        part(S(0.22), 0.46, 1.60, 0, 1.00, 0.90, 0.65);
+        // Arms
+        part(S(0.29), -1.00, 0.18, 0, 0.70, 1.14, 0.70, 0, 0, 0.38);
+        part(S(0.29), 1.00, 0.18, 0, 0.70, 1.14, 0.70, 0, 0, -0.38);
+        // Legs
+        part(S(0.31), -0.40, -0.95, 0, 0.88, 1.06, 0.80);
+        part(S(0.31), 0.40, -0.95, 0, 0.88, 1.06, 0.80);
+        // Snout
+        part(S(0.22), 0, 0.98, 0.54, 1.12, 0.76, 0.62);
+
+        // Eyes — matte dark
+        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x0d0d14, roughness: 0.25, metalness: 0.05 });
+        const mkEye = (x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.064, 20, 20), eyeMat); m.position.set(x, y, z); bear.add(m); };
+        mkEye(-0.22, 1.14, 0.57);
+        mkEye(0.22, 1.14, 0.57);
+
+        // Specular dot on eyes
+        const shMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.0 });
+        const mkSh = (x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.019, 8, 8), shMat); m.position.set(x, y, z); bear.add(m); };
+        mkSh(-0.20, 1.16, 0.63);
+        mkSh(0.20, 1.16, 0.63);
+
+        // Nose
+        const noseMat = new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.3 });
+        const noseM = new THREE.Mesh(new THREE.SphereGeometry(0.050, 16, 16), noseMat);
+        noseM.position.set(0, 0.98, 0.75); bear.add(noseM);
+
+        // ════════════════════════════════════════════════════
+        //  PHYSICS: INERTIA ROTATION
+        // ════════════════════════════════════════════════════
+        let vx = 0;          // angular velocity X
+        let vy = 0;          // angular velocity Y
+        let vz = 0;          // angular velocity Z (minor)
+
+        // Damping: higher = slower decay (more inertia)
+        const DAMP = 0.9865;
+        // Maximum torque impulse per frame at full volume
+        const MAX_IMP = 0.024;
+        // Tiny constant drift so it never fully freezes
+        const IDLE_V = 0.00004;
+
+        // ════════════════════════════════════════════════════
+        //  ANIMATION LOOP
+        // ════════════════════════════════════════════════════
+        const clock = new THREE.Clock();
+        let envUpdated = false;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsed = clock.getElapsedTime();
+
+            // Build env map once after first render
+            if (!envUpdated) {
+                bear.visible = false;
+                cubeCamera.update(renderer, scene);
+                bear.visible = true;
+                mat.envMap = cubeRT.texture;
+                mat.needsUpdate = true;
+                envUpdated = true;
+            }
+
+            // ── Volume ──
+            rawVol = sampleVol();
+            vol += rawVol > vol
+                ? (rawVol - vol) * 0.20     // attack: moderate
+                : (rawVol - vol) * 0.022;   // decay: very slow
+
+            // ── Torque impulse ──
+            const tq = Math.max(vol - 0.18, 0) * MAX_IMP;  // dead zone — ignore ambient/quiet noise
+            if (tq > 0) {
+                // Random direction with slight Y-axis bias
+                vx += (Math.random() - 0.5) * 2.0 * tq * 0.65;
+                vy += ((Math.random() - 0.3) * 1.4 + 0.7) * tq;
+                vz += (Math.random() - 0.5) * 2.0 * tq * 0.25;
+            }
+
+            // ── Inertia (friction) ──
+            vx *= DAMP;
+            vy *= DAMP;
+            vz *= DAMP;
+
+            // ── Idle ghost drift (always present, extremely subtle) ──
+            vy += IDLE_V;
+
+            // ── Apply rotation ──
+            bear.rotation.x += vx;
+            bear.rotation.y += vy;
+            bear.rotation.z += vz;
+
+            // ── Float animation (independent, not rotation) ──
+            // Slow gentle levitation — no wobble in rotation, just Y position
+            const floatY = Math.sin(elapsed * 0.72) * 0.10
+                + Math.sin(elapsed * 1.35) * 0.03;
+
+            // Breathing scale — very subtle
+            const breathe = 1.0
+                + Math.sin(elapsed * 0.95) * 0.007
+                + Math.sin(elapsed * 1.80) * 0.003;
+
+            bear.position.y = floatY;
+            bear.scale.setScalar(breathe);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // ── Resize ──
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>

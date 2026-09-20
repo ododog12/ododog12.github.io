@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spatial Touch — Hand Tracking Web Interface</title>
+  <meta name="description" content="Next-generation browser interface controlled completely via webcam hand gestures, featuring sub-pixel smoothed pointer movement and pinch-to-click.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-surface: rgba(18, 22, 33, 0.65);
+      --bg-surface-hover: rgba(26, 32, 48, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(0, 242, 254, 0.4);
+      --accent-cyan: #00f2fe;
+      --accent-purple: #9d4edd;
+      --accent-emerald: #00f5a0;
+      --text-main: #f0f4fc;
+      --text-muted: #8e9bb4;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-display: 'Space Grotesk', sans-serif;
+      --transition-smooth: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+      position: relative;
+    }
+
+    /* Ambient background lighting */
+    .ambient-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: 
+        radial-gradient(circle at 20% 15%, rgba(0, 242, 254, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 80% 85%, rgba(157, 78, 221, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(0, 245, 160, 0.04) 0%, transparent 60%);
+    }
+
+    /* Hidden webcam: strictly used for tracking, never displayed */
+    #webcam {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -999;
+    }
+
+    /* ═══════════════════════════════════════════════
+       CUSTOM HAND CURSOR
+       ═══════════════════════════════════════════════ */
+    #hand-cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 34px;
+      height: 34px;
+      margin-top: -17px;
+      margin-left: -17px;
+      pointer-events: none;
+      z-index: 999999;
+      transform: translate3d(-100px, -100px, 0);
+      opacity: 0;
+      transition: opacity 0.25s ease, width 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), margin 0.2s;
+    }
+
+    #hand-cursor.visible {
+      opacity: 1;
+    }
+
+    /* Outer Ring */
+    .cursor-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid var(--accent-cyan);
+      box-shadow: 0 0 16px rgba(0, 242, 254, 0.45);
+      transition: all 0.2s ease;
+    }
+
+    /* Center Core Dot */
+    .cursor-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      margin-top: -4px;
+      margin-left: -4px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ffffff, 0 0 20px var(--accent-cyan);
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+
+    /* Pinch Progress Glow */
+    .cursor-pinch-indicator {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 242, 254, 0.6) 0%, transparent 70%);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    /* Cursor States */
+    #hand-cursor.is-hovering {
+      width: 50px;
+      height: 50px;
+      margin-top: -25px;
+      margin-left: -25px;
+    }
+    #hand-cursor.is-hovering .cursor-ring {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 24px rgba(0, 245, 160, 0.6);
+      transform: scale(1.1);
+    }
+    #hand-cursor.is-hovering .cursor-dot {
+      background: var(--accent-emerald);
+      box-shadow: 0 0 14px var(--accent-emerald);
+    }
+
+    #hand-cursor.is-pinching {
+      width: 22px;
+      height: 22px;
+      margin-top: -11px;
+      margin-left: -11px;
+    }
+    #hand-cursor.is-pinching .cursor-ring {
+      border-color: #ffffff;
+      background: rgba(0, 242, 254, 0.8);
+      box-shadow: 0 0 28px rgba(255, 255, 255, 0.9), 0 0 45px var(--accent-cyan);
+      transform: scale(0.85);
+    }
+    #hand-cursor.is-pinching .cursor-dot {
+      transform: scale(1.6);
+      background: #ffffff;
+    }
+
+    /* Click Ripple Effect */
+    .click-ripple {
+      position: fixed;
+      pointer-events: none;
+      width: 14px;
+      height: 14px;
+      margin-top: -7px;
+      margin-left: -7px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 20px var(--accent-cyan);
+      animation: ripple-out 0.55s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+      z-index: 999998;
+    }
+
+    @keyframes ripple-out {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(6);
+        opacity: 0;
+        border-color: var(--accent-cyan);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+       START SCREEN OVERLAY
+       ═══════════════════════════════════════════════ */
+    #start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #07090e;
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.8s;
+    }
+
+    #start-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-card {
+      background: rgba(18, 22, 33, 0.7);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 28px;
+      padding: 56px 48px;
+      text-align: center;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 32px 64px rgba(0, 0, 0, 0.6), 0 0 80px rgba(0, 242, 254, 0.08);
+      animation: float-slow 4s ease-in-out infinite;
+    }
+
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .start-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(0, 242, 254, 0.08);
+      border: 1px solid rgba(0, 242, 254, 0.25);
+      color: var(--accent-cyan);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .start-title {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 40%, #8e9bb4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .start-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+
+    .start-gestures-guide {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 36px;
+      text-align: left;
+    }
+
+    .guide-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .guide-icon {
+      font-size: 1.4rem;
+    }
+
+    .guide-text h4 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .guide-text p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 18px 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), #00a8ff);
+      color: #040810;
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 12px 32px rgba(0, 242, 254, 0.35);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 40px rgba(0, 242, 254, 0.55);
+    }
+
+    #loading-status {
+      margin-top: 18px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      min-height: 20px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       WEBSITE LAYOUT & INTERACTIVE ELEMENTS
+       ═══════════════════════════════════════════════ */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+    }
+
+    /* Navigation Header */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-radius: 20px;
+      background: var(--bg-surface);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--border-subtle);
+      margin-bottom: 40px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 12px rgba(0, 242, 254, 0.3);
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-item {
+      padding: 10px 18px;
+      border-radius: 12px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .nav-item:hover,
+    .nav-item.is-hovered {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--border-subtle);
+      transform: translateY(-1px);
+    }
+
+    .nav-item.active {
+      color: var(--accent-cyan);
+      background: rgba(0, 242, 254, 0.08);
+      border-color: rgba(0, 242, 254, 0.25);
+    }
+
+    .nav-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: rgba(0, 245, 160, 0.08);
+      border: 1px solid rgba(0, 245, 160, 0.2);
+      font-size: 0.78rem;
+      color: var(--accent-emerald);
+      font-weight: 600;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulse-glow 2s infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* Hero / Interactive Controls Bar */
+    .hero-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .hero-heading-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(14px);
+      transition: var(--transition-smooth);
+    }
+
+    .action-btn:hover,
+    .action-btn.is-hovered {
+      border-color: var(--border-accent);
+      background: var(--bg-surface-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 242, 254, 0.15);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(157, 78, 221, 0.15));
+      border-color: rgba(0, 242, 254, 0.35);
+      color: #fff;
+    }
+
+    /* Filter Pills */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
+    .filter-pill {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .filter-pill:hover,
+    .filter-pill.is-hovered {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .filter-pill.active {
+      color: #040810;
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 4px 16px rgba(0, 242, 254, 0.35);
+    }
+
+    /* ═══════════════════════════════════════════════
+       GALLERY CARDS GRID
+       ═══════════════════════════════════════════════ */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 28px;
+      margin-bottom: 60px;
+    }
+
+    .card {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 22px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .card:hover,
+    .card.is-hovered {
+      transform: translateY(-8px);
+      border-color: rgba(0, 242, 254, 0.4);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6), 0 0 35px rgba(0, 242, 254, 0.12);
+    }
+
+    /* Card Visual Artwork Banner */
+    .card-visual {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      background: #0d111b;
+    }
+
+    .card-visual svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .card:hover .card-visual svg,
+    .card.is-hovered .card-visual svg {
+      transform: scale(1.05);
+    }
+
+    .card-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(7, 9, 14, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .card-body {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    .card-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 20px;
+      flex-grow: 1;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-btn {
+      padding: 10px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+
+    .card-btn:hover,
+    .card-btn.is-hovered {
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      color: #040810;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 242, 254, 0.35);
+    }
+
+    .card-like-btn {
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-smooth);
+    }
+
+    .card-like-btn:hover,
+    .card-like-btn.is-hovered {
+      color: #ff3366;
+      border-color: rgba(255, 51, 102, 0.3);
+      background: rgba(255, 51, 102, 0.08);
+      transform: scale(1.05);
+    }
+
+    .card-like-btn.liked {
+      color: #ff3366;
+      background: rgba(255, 51, 102, 0.15);
+      border-color: #ff3366;
+    }
+
+    /* ═══════════════════════════════════════════════
+       INTERACTIVE MODAL DIALOG
+       ═══════════════════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(4, 6, 11, 0.75);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.35s ease, visibility 0.35s;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: #0f131f;
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      border-radius: 28px;
+      width: 90%;
+      max-width: 580px;
+      padding: 36px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 50px rgba(0, 242, 254, 0.15);
+      transform: scale(0.92);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-backdrop.open .modal-box {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    .modal-close-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .modal-close-btn:hover,
+    .modal-close-btn.is-hovered {
+      color: #fff;
+      background: rgba(255, 51, 102, 0.2);
+      border-color: #ff3366;
+      transform: rotate(90deg);
+    }
+
+    .modal-preview {
+      width: 100%;
+      height: 220px;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      background: #090c14;
+    }
+
+    .modal-desc {
+      color: var(--text-muted);
+      line-height: 1.65;
+      font-size: 0.95rem;
+      margin-bottom: 28px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       INTERACTION FEEDBACK TOAST / STATUS
+       ═══════════════════════════════════════════════ */
+    .interaction-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 999px;
+      background: rgba(14, 18, 28, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      transition: border-color 0.3s ease, color 0.3s ease;
+    }
+
+    .interaction-toast strong {
+      color: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden Camera Element: Real-time hand tracking only -->
+  <video id="webcam" autoplay playsinline muted></video>
+
+  <!-- Ambient Light Graphics -->
+  <div class="ambient-glow"></div>
+
+  <!-- Custom Hand Gesture Cursor -->
+  <div id="hand-cursor" aria-hidden="true">
+    <div class="cursor-ring"></div>
+    <div class="cursor-pinch-indicator"></div>
+    <div class="cursor-dot"></div>
+  </div>
+
+  <!-- Start Screen Overlay -->
+  <div id="start-overlay">
+    <div class="start-card">
+      <div class="start-badge">Spatial Gesture Interface</div>
+      <h1 class="start-title">Touchless Web Navigation</h1>
+      <p class="start-desc">웹캠 손동작만으로 마우스 없이 웹사이트를 조작하세요. 검지로 커서를 움직이고, 엄지와 검지를 붙여(Pinch) 클릭할 수 있습니다.</p>
+
+      <div class="start-gestures-guide">
+        <div class="guide-item">
+          <span class="guide-icon">👆</span>
+          <div class="guide-text">
+            <h4>검지 이동</h4>
+            <p>화면 커서 이동 (Smoothing 적용)</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">🤏</span>
+          <div class="guide-text">
+            <h4>엄지+검지 핀치</h4>
+            <p>요소 클릭 (1회 디바운싱)</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-start" class="btn-start">Start Experience</button>
+      <div id="loading-status">카메라 권한을 허용하면 비접촉 인터랙션이 시작됩니다.</div>
+    </div>
+  </div>
+
+  <!-- Main Website Interface -->
+  <div class="app-container">
+
+    <!-- Top Navigation -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <div class="brand-logo-icon">✦</div>
+        <div class="brand-title">SPATIAL.OS</div>
+      </div>
+
+      <div class="nav-menu">
+        <button class="nav-item active" data-filter="all">All Gallery</button>
+        <button class="nav-item" data-filter="generative">Generative Art</button>
+        <button class="nav-item" data-filter="worlds">3D Worlds</button>
+        <button class="nav-item" data-filter="cyberpunk">Cybernetic</button>
+      </div>
+
+      <div class="nav-status">
+        <span class="pulse-dot"></span>
+        <span id="tracking-status-text">Hand Tracking Ready</span>
+      </div>
+    </nav>
+
+    <!-- Hero Controls Bar -->
+    <header class="hero-banner">
+      <div class="hero-heading-row">
+        <div>
+          <h2 class="hero-title">Interactive <span>Spatial Gallery</span></h2>
+          <p style="color: var(--text-muted); margin-top: 6px; font-size: 0.95rem;">마우스 없이 손을 움직여 카드를 둘러보고, 엄지와 검지를 맞대어(Pinch) 작품을 열어보세요.</p>
+        </div>
+
+        <div class="hero-actions">
+          <button id="btn-sound-toggle" class="action-btn">
+            <span>🔔</span> Sound: On
+          </button>
+          <button id="btn-random-like" class="action-btn primary">
+            <span>✨</span> Pulse Like All
+          </button>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="filter-bar">
+        <button class="filter-pill active" data-category="all">⚡ All Artifacts (6)</button>
+        <button class="filter-pill" data-category="neural">🧠 Neural Synthesis</button>
+        <button class="filter-pill" data-category="hologram">🔮 Holographic</button>
+        <button class="filter-pill" data-category="geometry">📐 Parametric</button>
+      </div>
+    </header>
+
+    <!-- Gallery Grid of Cards -->
+    <main class="cards-grid" id="cards-container">
+
+      <!-- Card 1 -->
+      <article class="card" data-category="neural">
+        <div class="card-visual">
+          <span class="card-badge">Neural Core</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#080c14"/>
+            <circle cx="200" cy="100" r="70" stroke="url(#grad1)" stroke-width="2" opacity="0.8"/>
+            <circle cx="200" cy="100" r="45" stroke="#00f2fe" stroke-dasharray="6 4" stroke-width="2"/>
+            <circle cx="200" cy="100" r="22" fill="url(#grad1)" opacity="0.6"/>
+            <path d="M50 100 Q 120 40 200 100 T 350 100" stroke="#7000ff" stroke-width="2" opacity="0.5"/>
+            <path d="M50 100 Q 120 160 200 100 T 350 100" stroke="#00f5a0" stroke-width="2" opacity="0.5"/>
+            <defs>
+              <linearGradient id="grad1" x1="0" y1="0" x2="400" y2="200">
+                <stop stop-color="#00f2fe"/>
+                <stop offset="1" stop-color="#7000ff"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Synaptic Nexus</h3>
+          <p class="card-desc">실시간 신경망 다이나믹스를 시각화한 양자 인터랙티브 네트워크 노드 시스템입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Synaptic Nexus" data-desc="신경망 상호작용 알고리즘을 통해 관찰자의 시선과 손동작에 유기적으로 반응하는 디지털 시냅스 가상 유기체입니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="142">
+              <span>♥</span> <span class="like-counter">142</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 2 -->
+      <article class="card" data-category="hologram">
+        <div class="card-visual">
+          <span class="card-badge">Hologram</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#0c0714"/>
+            <polygon points="200,30 290,170 110,170" stroke="url(#grad2)" stroke-width="2" fill="rgba(157, 78, 221, 0.1)"/>
+            <polygon points="200,60 260,155 140,155" stroke="#00f2fe" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <circle cx="200" cy="120" r="18" fill="#00f5a0" opacity="0.8"/>
+            <line x1="200" y1="30" x2="200" y2="170" stroke="rgba(255,255,255,0.2)"/>
+            <defs>
+              <linearGradient id="grad2" x1="110" y1="30" x2="290" y2="170">
+                <stop stop-color="#9d4edd"/>
+                <stop offset="1" stop-color="#00f5a0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Prism Horizon</h3>
+          <p class="card-desc">빛의 굴절과 분광 스펙트럼을 기하학적 프리즘으로 표현한 입체 공간 조각입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Prism Horizon" data-desc="빛의 굴절률과 감응형 회절 격자를 이용해 공간에 홀로그래픽 심도를 창조하는 인터랙티브 오브젝트입니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="289">
+              <span>♥</span> <span class="like-counter">289</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 3 -->
+      <article class="card" data-category="geometry">
+        <div class="card-visual">
+          <span class="card-badge">Parametric</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#06120e"/>
+            <path d="M40 160 C 120 40, 280 40, 360 160" stroke="#00f5a0" stroke-width="3" fill="none"/>
+            <path d="M60 160 C 130 60, 270 60, 340 160" stroke="rgba(0,245,160,0.6)" stroke-width="2" fill="none"/>
+            <path d="M80 160 C 140 80, 260 80, 320 160" stroke="rgba(0,245,160,0.3)" stroke-width="1.5" fill="none"/>
+            <circle cx="200" cy="70" r="16" fill="#00f2fe" opacity="0.9"/>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Vortex Biosphere</h3>
+          <p class="card-desc">수학적 토러스 곡면과 유체역학적 흐름을 합성하여 구축된 유기적 파라메트릭 그리드입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Vortex Biosphere" data-desc="비선형 파동 방정식에 의해 스스로 형태를 변형시키는 동적 바이오스피어 3D 모델링 전시물입니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="98">
+              <span>♥</span> <span class="like-counter">98</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 4 -->
+      <article class="card" data-category="neural">
+        <div class="card-visual">
+          <span class="card-badge">Cybernetic</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#12080a"/>
+            <rect x="70" y="40" width="260" height="120" rx="14" stroke="#ff0055" stroke-width="2" fill="rgba(255,0,85,0.05)"/>
+            <line x1="70" y1="90" x2="330" y2="90" stroke="rgba(255,0,85,0.3)"/>
+            <line x1="160" y1="40" x2="160" y2="160" stroke="rgba(255,0,85,0.3)"/>
+            <circle cx="240" cy="120" r="28" stroke="#00f2fe" stroke-width="2"/>
+            <circle cx="240" cy="120" r="6" fill="#00f2fe"/>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Cybernetic Relic</h3>
+          <p class="card-desc">미래 기계 문명의 데이터 잔해와 양자 기억 장치를 모티프로 설계한 인터페이스 아카이브입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Cybernetic Relic" data-desc="미래 고고학적 관점에서 발굴된 데이터 아티팩트를 복원하여 실시간 햅틱 및 공간 터치로 분해해 볼 수 있습니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="312">
+              <span>♥</span> <span class="like-counter">312</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 5 -->
+      <article class="card" data-category="hologram">
+        <div class="card-visual">
+          <span class="card-badge">Spatial Wave</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#070c18"/>
+            <circle cx="120" cy="100" r="60" stroke="#00f2fe" stroke-width="2" opacity="0.6"/>
+            <circle cx="280" cy="100" r="60" stroke="#7000ff" stroke-width="2" opacity="0.6"/>
+            <ellipse cx="200" cy="100" rx="90" ry="40" stroke="#00f5a0" stroke-width="2" stroke-dasharray="6 6"/>
+            <circle cx="200" cy="100" r="12" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Resonance Field</h3>
+          <p class="card-desc">두 개의 공명 주파수가 충돌하며 생성되는 정상파와 간섭 무늬를 형상화한 음향 파동체입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Resonance Field" data-desc="손의 위치에 따라 서로 다른 주파수의 화음과 정상파 비주얼을 실시간 생성하는 오디오-비주얼 인스톨레이션입니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="245">
+              <span>♥</span> <span class="like-counter">245</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 6 -->
+      <article class="card" data-category="geometry">
+        <div class="card-visual">
+          <span class="card-badge">Quantum Lattice</span>
+          <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="200" fill="#0d0e14"/>
+            <g stroke="url(#grad6)" stroke-width="1.5">
+              <line x1="80" y1="50" x2="320" y2="150"/>
+              <line x1="80" y1="150" x2="320" y2="50"/>
+              <line x1="200" y1="20" x2="200" y2="180"/>
+              <line x1="60" y1="100" x2="340" y2="100"/>
+            </g>
+            <circle cx="200" cy="100" r="32" fill="#121624" stroke="#00f2fe" stroke-width="2"/>
+            <circle cx="200" cy="100" r="10" fill="#00f2fe"/>
+            <defs>
+              <linearGradient id="grad6" x1="60" y1="20" x2="340" y2="180">
+                <stop stop-color="#00f2fe"/>
+                <stop offset="0.5" stop-color="#9d4edd"/>
+                <stop offset="1" stop-color="#00f5a0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">Chronos Matrix</h3>
+          <p class="card-desc">4차원 시공간 테서랙트(초입방체)의 회전 궤적을 2차원 투영으로 직관화한 양자 격자 구조입니다.</p>
+          <div class="card-footer">
+            <button class="card-btn btn-explore" data-title="Chronos Matrix" data-desc="고차원 기하학의 회전 변환을 손 제스처를 통해 직관적으로 조작할 수 있는 차원 탐색 프로젝트입니다.">
+              <span>Explore</span> →
+            </button>
+            <button class="card-like-btn" data-count="418">
+              <span>♥</span> <span class="like-counter">418</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+    </main>
+
+  </div>
+
+  <!-- Interactive Detail Modal -->
+  <div id="detail-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title" class="modal-title">Artifact Details</h3>
+        <button id="btn-close-modal" class="modal-close-btn" title="닫기">✕</button>
+      </div>
+      <div id="modal-preview" class="modal-preview"></div>
+      <p id="modal-desc" class="modal-desc">상세 설명이 여기에 표시됩니다.</p>
+      <div class="modal-actions">
+        <button id="btn-modal-action" class="action-btn primary">
+          <span>✓</span> Confirm Selection
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <aside id="interaction-toast" class="interaction-toast" aria-live="polite">
+    <span id="toast-icon">🖐️</span>
+    <span id="toast-message">Camera ready. Press <strong>START</strong> to begin hand tracking.</span>
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════
+       MEDIAPIPE HAND TRACKING & SPATIAL ENGINE
+       ═══════════════════════════════════════════════ -->
+  <script type="module">
+    import { HandLandmarker, FilesetResolver } 
+      from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
+    // ── Web Audio Synth for Tactile Gesture Feedback ──
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playChime(freq = 660, type = 'sine', duration = 0.08) {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (_) {}
+    }
+
+    // ── Sound & Like Controls ──
+    const soundBtn = document.getElementById('btn-sound-toggle');
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.innerHTML = soundEnabled ? '<span>🔔</span> Sound: On' : '<span>🔕</span> Sound: Off';
+      showToast('Sound feedback: ' + (soundEnabled ? 'Enabled' : 'Muted'), '🔊');
+    });
+
+    const randomLikeBtn = document.getElementById('btn-random-like');
+    randomLikeBtn.addEventListener('click', () => {
+      document.querySelectorAll('.card-like-btn').forEach(btn => {
+        const counter = btn.querySelector('.like-counter');
+        const curr = parseInt(counter.textContent, 10);
+        counter.textContent = curr + 1;
+        btn.classList.add('liked');
+      });
+      playChime(880, 'triangle', 0.15);
+      showToast('Liked all artifacts in gallery!', '💖');
+    });
+
+    // ── Toast Status Helper ──
+    const toastEl = document.getElementById('interaction-toast');
+    const toastMsg = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+
+    function showToast(msg, icon = '✦') {
+      toastIcon.textContent = icon;
+      toastMsg.innerHTML = msg;
+    }
+
+    // ── Modal Handling ──
+    const modal = document.getElementById('detail-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalDesc = document.getElementById('modal-desc');
+    const modalPreview = document.getElementById('modal-preview');
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    const btnModalAction = document.getElementById('btn-modal-action');
+
+    function openModal(title, desc, svgContent) {
+      modalTitle.textContent = title;
+      modalDesc.textContent = desc;
+      modalPreview.innerHTML = svgContent || '';
+      modal.classList.add('open');
+      playChime(520, 'sine', 0.12);
+      showToast(`Opened modal: <strong>${title}</strong>`, '📂');
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      playChime(380, 'sine', 0.09);
+      showToast('Modal closed', '✕');
+    }
+
+    btnCloseModal.addEventListener('click', closeModal);
+    btnModalAction.addEventListener('click', () => {
+      showToast('Action confirmed!', '✓');
+      closeModal();
+    });
+
+    // ── Card Interaction Listeners ──
+    document.querySelectorAll('.card').forEach(card => {
+      const exploreBtn = card.querySelector('.btn-explore');
+      const likeBtn = card.querySelector('.card-like-btn');
+      const visualSvg = card.querySelector('.card-visual svg');
+
+      if (exploreBtn) {
+        exploreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const title = exploreBtn.getAttribute('data-title');
+          const desc = exploreBtn.getAttribute('data-desc');
+          openModal(title, desc, visualSvg ? visualSvg.outerHTML : '');
+        });
+      }
+
+      if (likeBtn) {
+        likeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const counter = likeBtn.querySelector('.like-counter');
+          let count = parseInt(counter.textContent, 10);
+          if (likeBtn.classList.contains('liked')) {
+            likeBtn.classList.remove('liked');
+            counter.textContent = count - 1;
+            showToast('Unliked artifact', '🤍');
+          } else {
+            likeBtn.classList.add('liked');
+            counter.textContent = count + 1;
+            playChime(780, 'triangle', 0.1);
+            showToast('Liked artifact! +1', '💖');
+          }
+        });
+      }
+
+      // Clicking card background opens explore
+      card.addEventListener('click', () => {
+        if (exploreBtn) exploreBtn.click();
+      });
+    });
+
+    // ── Navigation & Filter Buttons ──
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const cat = pill.getAttribute('data-category');
+
+        document.querySelectorAll('.card').forEach(c => {
+          if (cat === 'all' || c.getAttribute('data-category') === cat) {
+            c.style.display = 'flex';
+          } else {
+            c.style.display = 'none';
+          }
+        });
+        playChime(640, 'sine', 0.08);
+        showToast(`Filtered category: <strong>${pill.textContent.trim()}</strong>`, '🔍');
+      });
+    });
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        playChime(600, 'sine', 0.08);
+        showToast(`Navigation: <strong>${item.textContent}</strong>`, '⚡');
+      });
+    });
+
+    // ═══════════════════════════════════════════════
+    //  HAND TRACKING & SPATIAL POINTER SYSTEM
+    // ═══════════════════════════════════════════════
+    let handLandmarker = null;
+    let isTracking = false;
+    const video = document.getElementById('webcam');
+    const cursorEl = document.getElementById('hand-cursor');
+    const startOverlay = document.getElementById('start-overlay');
+    const btnStart = document.getElementById('btn-start');
+    const loadingStatus = document.getElementById('loading-status');
+    const trackingStatusText = document.getElementById('tracking-status-text');
+
+    // Filter & Smoothing Variables
+    let cursorX = window.innerWidth / 2;
+    let cursorY = window.innerHeight / 2;
+    let targetX = cursorX;
+    let targetY = cursorY;
+    const SMOOTH_FACTOR = 0.30; // Balances instantaneous responsiveness & rock-solid jitter suppression
+
+    // Pinch Gesture State
+    let isPinching = false;
+    let wasPinching = false;
+    let currentHoverEl = null;
+    let lastHandSeenTime = 0;
+
+    // Start Button: Request Camera & Init MediaPipe Hand Landmarker
+    btnStart.addEventListener('click', async () => {
+      initAudio();
+      loadingStatus.textContent = 'MediaPipe HandLandmarker 모델을 불러오는 중…';
+      btnStart.disabled = true;
+      btnStart.style.opacity = '0.6';
+
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+        );
+
+        try {
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+              delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numHands: 1
+          });
+        } catch {
+          // CPU fallback
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+              delegate: 'CPU'
+            },
+            runningMode: 'VIDEO',
+            numHands: 1
+          });
+        }
+
+        loadingStatus.textContent = '카메라 연결 요청 중…';
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+
+        isTracking = true;
+        cursorEl.classList.add('visible');
+        startOverlay.classList.add('hidden');
+        trackingStatusText.textContent = 'Hand Active: Ready';
+        showToast('손을 카메라 앞에 올리면 검지로 조작할 수 있습니다!', '🖐️');
+        playChime(720, 'triangle', 0.2);
+
+        requestAnimationFrame(trackingLoop);
+
+      } catch (err) {
+        console.error('Initialization failed:', err);
+        loadingStatus.textContent = '카메라 연결 또는 모델 로드 실패: 권한을 확인해주세요.';
+        btnStart.disabled = false;
+        btnStart.style.opacity = '1';
+      }
+    });
+
+    // ── Click Trigger with Visual Ripple Feedback ──
+    function createClickRipple(x, y) {
+      const ripple = document.createElement('div');
+      ripple.className = 'click-ripple';
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    }
+
+    function triggerGestureClick(x, y) {
+      createClickRipple(x, y);
+      playChime(920, 'sine', 0.07);
+
+      // Locate element directly under cursor
+      const el = document.elementFromPoint(x, y);
+      if (!el) return;
+
+      const target = el.closest('button, a, .card, .filter-pill, .nav-item, input') || el;
+
+      // Dispatch synthetic Pointer & Mouse events
+      const evtInit = {
+        clientX: x,
+        clientY: y,
+        bubbles: true,
+        cancelable: true,
+        view: window
+      };
+
+      target.dispatchEvent(new PointerEvent('pointerdown', evtInit));
+      target.dispatchEvent(new MouseEvent('mousedown', evtInit));
+      target.dispatchEvent(new PointerEvent('pointerup', evtInit));
+      target.dispatchEvent(new MouseEvent('mouseup', evtInit));
+      target.dispatchEvent(new MouseEvent('click', evtInit));
+
+      // Native .click() invoke if accessible
+      if (typeof target.click === 'function' && target !== el) {
+        target.click();
+      }
+
+      showToast(`Pinch Clicked: <strong>${(target.textContent || target.tagName).trim().slice(0, 24)}</strong>`, '🤏');
+    }
+
+    // ── Real-time Tracking Loop ──
+    let lastVideoTime = -1;
+
+    function trackingLoop() {
+      if (isTracking && handLandmarker && video.readyState >= 2) {
+        const now = performance.now();
+
+        if (video.currentTime !== lastVideoTime) {
+          lastVideoTime = video.currentTime;
+          const result = handLandmarker.detectForVideo(video, now);
+
+          if (result.landmarks && result.landmarks.length > 0) {
+            lastHandSeenTime = now;
+            const landmarks = result.landmarks[0];
+
+            // Key Landmark Indices:
+            // 0: Wrist
+            // 4: Thumb Tip
+            // 8: Index Finger Tip
+            // 9: Middle MCP (Knuckle)
+            const wrist = landmarks[0];
+            const thumbTip = landmarks[4];
+            const indexTip = landmarks[8];
+            const middleKnuckle = landmarks[9];
+
+            // ── 1. Coordinate Mapping (Comfort Zone + Mirroring) ──
+            // Mirroring: video x is mirrored for selfie view
+            const rawMirroredX = 1.0 - indexTip.x;
+            const rawY = indexTip.y;
+
+            // Map active zone [0.18, 0.82] & [0.15, 0.85] to full viewport
+            const clamp01 = v => Math.max(0, Math.min(1, v));
+            const normX = clamp01((rawMirroredX - 0.18) / (0.82 - 0.18));
+            const normY = clamp01((rawY - 0.15) / (0.85 - 0.15));
+
+            targetX = normX * window.innerWidth;
+            targetY = normY * window.innerHeight;
+
+            // ── 2. Pinch Detection (Scale Invariant) ──
+            // Hand scale: Euclidean distance between wrist(0) and middle knuckle(9)
+            const handScale = Math.hypot(wrist.x - middleKnuckle.x, wrist.y - middleKnuckle.y);
+            // Distance between thumb tip and index tip
+            const pinchDist = Math.hypot(thumbTip.x - indexTip.x, thumbTip.y - indexTip.y);
+
+            // Normalized pinch ratio
+            const safeHandScale = Math.max(0.08, handScale);
+            const pinchRatio = pinchDist / safeHandScale;
+
+            // Hysteresis thresholds to prevent boundary fluttering
+            // PINCH IN: 0.38, PINCH OUT: 0.48
+            if (!isPinching && pinchRatio < 0.38) {
+              isPinching = true;
+            } else if (isPinching && pinchRatio > 0.48) {
+              isPinching = false;
+            }
+
+            // ── 3. Single Click on Pinch Start ──
+            if (isPinching && !wasPinching) {
+              triggerGestureClick(cursorX, cursorY);
+            }
+            wasPinching = isPinching;
+
+            trackingStatusText.textContent = isPinching ? 'Pinch Active' : 'Hand Active';
+          }
+        }
+      }
+
+      // Check if hand was lost
+      const now = performance.now();
+      const handPresent = now - lastHandSeenTime < 350;
+      if (!handPresent) {
+        cursorEl.classList.remove('visible');
+        trackingStatusText.textContent = 'Searching for Hand…';
+        if (currentHoverEl) {
+          currentHoverEl.classList.remove('is-hovered');
+          currentHoverEl = null;
+        }
+      } else {
+        cursorEl.classList.add('visible');
+      }
+
+      // ── Smooth Cursor Interpolation ──
+      cursorX += (targetX - cursorX) * SMOOTH_FACTOR;
+      cursorY += (targetY - cursorY) * SMOOTH_FACTOR;
+
+      // Update Cursor Position
+      cursorEl.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0)`;
+
+      // Cursor Visual State Update
+      if (isPinching) {
+        cursorEl.classList.add('is-pinching');
+      } else {
+        cursorEl.classList.remove('is-pinching');
+      }
+
+      // ── Hover Detection over Interactive Elements ──
+      if (handPresent) {
+        const underCursor = document.elementFromPoint(cursorX, cursorY);
+        const interactiveTarget = underCursor ? underCursor.closest('button, a, .card, .filter-pill, .nav-item, input') : null;
+
+        if (interactiveTarget !== currentHoverEl) {
+          if (currentHoverEl) {
+            currentHoverEl.classList.remove('is-hovered');
+          }
+          if (interactiveTarget) {
+            interactiveTarget.classList.add('is-hovered');
+            cursorEl.classList.add('is-hovering');
+            playChime(500, 'sine', 0.04);
+          } else {
+            cursorEl.classList.remove('is-hovering');
+          }
+          currentHoverEl = interactiveTarget;
+        }
+      }
+
+      requestAnimationFrame(trackingLoop);
+    }
+
+    // Window Resize Support
+    window.addEventListener('resize', () => {
+      cursorX = Math.min(window.innerWidth, Math.max(0, cursorX));
+      cursorY = Math.min(window.innerHeight, Math.max(0, cursorY));
+    });
+  </script>
+</body>
+</html>

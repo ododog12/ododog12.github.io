@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXP_03</title>
+
+  <script type="importmap">
+  { "imports": { "three": "https://unpkg.com/three@0.152.0/build/three.module.js" } }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #080808;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Webcam hidden — only used for tracking */
+    #webcam {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #three-canvas {
+      position: fixed;
+      inset: 0;
+      display: block;
+    }
+
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: #080808;
+      transition: opacity 0.9s ease;
+    }
+
+    #start-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #start-btn {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 2.5rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: #555;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 14px 6px;
+      transition: color 0.3s;
+      user-select: none;
+    }
+
+    #start-btn:hover {
+      color: #ccc;
+    }
+
+    #loading-msg {
+      font-family: 'Helvetica Neue', sans-serif;
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #333;
+      opacity: 0;
+      transition: opacity 0.4s;
+      text-align: center;
+    }
+
+    #loading-msg.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <video id="webcam" autoplay playsinline muted></video>
+  <canvas id="three-canvas"></canvas>
+
+  <div id="start-screen">
+    <button id="start-btn">start</button>
+    <div id="loading-msg">loading face model…</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { FaceLandmarker, FilesetResolver }
+      from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
+    // ═══════════════════════════════════════════════
+    //  RENDERER
+    // ═══════════════════════════════════════════════
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x080808, 1);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.z = 7;
+
+    // ═══════════════════════════════════════════════
+    //  LIGHTS
+    // ═══════════════════════════════════════════════
+    scene.add(new THREE.AmbientLight(0x180606, 5));
+
+    // Main key — warm frontal
+    const keyLight = new THREE.PointLight(0xffe0c0, 5.5, 20);
+    keyLight.position.set(0, 3.5, 6);
+    scene.add(keyLight);
+
+    // Rim — cool blue from behind
+    const rimLight = new THREE.DirectionalLight(0x1020c0, 0.9);
+    rimLight.position.set(0, 0, -6);
+    scene.add(rimLight);
+
+    // Under-fill — dark red
+    const bottomLight = new THREE.PointLight(0x880000, 2, 12);
+    bottomLight.position.set(0, -5, 1.5);
+    scene.add(bottomLight);
+
+    // ═══════════════════════════════════════════════
+    //  MATERIALS
+    // ═══════════════════════════════════════════════
+    const mFace = new THREE.MeshStandardMaterial({ color: 0xBE1A1A, roughness: 0.62, metalness: 0.10 });
+    const mDark = new THREE.MeshStandardMaterial({ color: 0x050204, roughness: 0.85, metalness: 0.30 });
+    const mHorn = new THREE.MeshStandardMaterial({ color: 0x1A1005, roughness: 0.20, metalness: 0.78 });
+    const mEye = new THREE.MeshStandardMaterial({ color: 0xFF9400, emissive: 0xFF5200, emissiveIntensity: 1.2, roughness: 0.08 });
+    const mPupil = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.9 });
+    const mLid = new THREE.MeshStandardMaterial({ color: 0x9E1010, roughness: 0.70 });
+    const mTooth = new THREE.MeshStandardMaterial({ color: 0xF0EDD2, roughness: 0.38 });
+    const mMark = new THREE.MeshStandardMaterial({ color: 0x7E0000, roughness: 0.92 });
+    const mInner = new THREE.MeshStandardMaterial({ color: 0x020002, roughness: 1.0, side: THREE.DoubleSide });
+
+    // ═══════════════════════════════════════════════
+    //  ONI MASK GEOMETRY
+    // ═══════════════════════════════════════════════
+    const maskGroup = new THREE.Group();
+    scene.add(maskGroup);
+
+    // Eye glow (travels with mask)
+    const eyeGlow = new THREE.PointLight(0xFF7200, 1.1, 3.5);
+    eyeGlow.position.set(0, 0.30, 1.05);
+    maskGroup.add(eyeGlow);
+
+    // ── Upper Face Plate (Forehead, eyes, nose arch) ──
+    const upperFacePlate = new THREE.Mesh(
+      new THREE.SphereGeometry(1.30, 80, 60, 0, Math.PI * 2, 0, Math.PI * 0.58),
+      mFace
+    );
+    upperFacePlate.scale.set(1.0, 1.25, 0.50);
+    maskGroup.add(upperFacePlate);
+
+    // Lateral Cheek Flanges (Sides of jaw/temple)
+    [-1, 1].forEach(side => {
+      const cheekSide = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.60, 0.42), mFace);
+      cheekSide.position.set(side * 0.90, -0.42, 0.26);
+      cheekSide.rotation.set(0.10, 0, side * 0.18);
+      maskGroup.add(cheekSide);
+    });
+
+    // ── Deep Mouth Cavity (Dark interior revealed on jaw drop) ──
+    const mouthCavity = new THREE.Mesh(
+      new THREE.BoxGeometry(1.28, 0.72, 0.60),
+      mInner
+    );
+    mouthCavity.position.set(0, -0.48, 0.18);
+    maskGroup.add(mouthCavity);
+
+    // ── Horns ───────────────────────────────────────
+    function buildHorn(side) {
+      const g = new THREE.Group();
+
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.19, 0.78, 7), mHorn);
+      shaft.position.y = 0.39;
+      g.add(shaft);
+
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.42, 7), mHorn);
+      tip.position.y = 1.00;
+      g.add(tip);
+
+      // Ring at base
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.045, 8, 16), mDark);
+      ring.rotation.x = Math.PI / 2;
+      g.add(ring);
+
+      g.position.set(side * 0.52, 1.30, 0.05);
+      g.rotation.set(0.07, 0, side * 0.20);
+      maskGroup.add(g);
+    }
+    buildHorn(-1); buildHorn(1);
+
+    // ── Heavy Brow Ridge ────────────────────────────
+    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 32), mDark);
+    brow.scale.set(4.2, 0.50, 0.85);
+    brow.position.set(0, 0.72, 0.52);
+    maskGroup.add(brow);
+
+    // V-shape anger crease
+    [-0.14, 0.14].forEach(x => {
+      const crease = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.20, 0.08), mDark);
+      crease.position.set(x, 0.61, 0.60);
+      crease.rotation.z = x < 0 ? 0.48 : -0.48;
+      maskGroup.add(crease);
+    });
+
+    // ── Nose ────────────────────────────────────────
+    const noseMesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 32), mFace);
+    noseMesh.scale.set(1.30, 0.70, 0.65);
+    noseMesh.position.set(0, -0.06, 0.73);
+    maskGroup.add(noseMesh);
+    // Nostrils
+    [-0.13, 0.13].forEach(x => {
+      const n = new THREE.Mesh(new THREE.SphereGeometry(0.068, 16, 16), mDark);
+      n.scale.set(1.0, 0.7, 0.5);
+      n.position.set(x, -0.11, 0.81);
+      maskGroup.add(n);
+    });
+
+    // ── Eyes (with sliding eyelids) ─────────────────
+    function buildEye(side) {
+      const grp = new THREE.Group();
+      grp.position.set(side * 0.52, 0.30, 0.63);
+      maskGroup.add(grp);
+
+      // Dark socket recess
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(0.21, 32, 32), mDark);
+      socket.scale.set(1.20, 0.88, 0.42);
+      socket.position.z = -0.02;
+      grp.add(socket);
+
+      // Iris — amber emissive
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(0.155, 32, 32), mEye);
+      iris.scale.set(1.0, 1.0, 0.36);
+      iris.position.z = 0.055;
+      grp.add(iris);
+
+      // Pupil
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.072, 16, 16), mPupil);
+      pupil.scale.set(1.0, 1.0, 0.30);
+      pupil.position.z = 0.095;
+      grp.add(pupil);
+
+      // Eyelid — flattened sphere, same color as face (darker),
+      // starts above iris (open) and slides down to close
+      const lid = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 32), mLid);
+      lid.scale.set(1.20, 0.58, 0.46);
+      lid.position.set(0, 0.23, 0.08); // OPEN position
+      grp.add(lid);
+
+      return { lid };
+    }
+
+    const { lid: lLid } = buildEye(-1);
+    const { lid: rLid } = buildEye(1);
+
+    // ── Cheek marks (Grouped for smile reaction) ───
+    const cheekGroup = new THREE.Group();
+    maskGroup.add(cheekGroup);
+    [
+      { x: -0.83, y: 0.09, z: 0.50, rz: 0.28 },
+      { x: 0.83, y: 0.09, z: 0.50, rz: -0.28 },
+      { x: -0.72, y: 0.29, z: 0.58, rz: 0.12 },
+      { x: 0.72, y: 0.29, z: 0.58, rz: -0.12 },
+    ].forEach(({ x, y, z, rz }) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.28, 0.036), mMark);
+      m.position.set(x, y, z);
+      m.rotation.z = rz;
+      cheekGroup.add(m);
+    });
+
+    // ── Upper Mouth & Teeth (Expands & curves on smile) ──
+    const upperMouthGroup = new THREE.Group();
+    upperMouthGroup.position.set(0, -0.34, 0.66);
+    maskGroup.add(upperMouthGroup);
+
+    // Upper lip - arched center
+    const upperLipCenter = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 16), mDark);
+    upperLipCenter.scale.set(1.45, 0.20, 0.44);
+    upperLipCenter.position.set(0, 0, 0);
+    upperMouthGroup.add(upperLipCenter);
+
+    // Upper lip corners (wings that tilt up when smiling)
+    const upperLipL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), mDark);
+    upperLipL.scale.set(1.2, 0.20, 0.40);
+    upperLipL.position.set(-0.46, -0.01, -0.04);
+    upperMouthGroup.add(upperLipL);
+
+    const upperLipR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), mDark);
+    upperLipR.scale.set(1.2, 0.20, 0.40);
+    upperLipR.position.set(0.46, -0.01, -0.04);
+    upperMouthGroup.add(upperLipR);
+
+    // Upper fangs (Enlarged & menacing, pointing downward)
+    function addUpperFang(x, r, h, rz = 0) {
+      const t = new THREE.Mesh(new THREE.ConeGeometry(r, h, 16), mTooth);
+      t.position.set(x, -h * 0.42, 0.05);
+      t.rotation.x = Math.PI; // point downward
+      t.rotation.z = rz;
+      upperMouthGroup.add(t);
+      return t;
+    }
+    // Main upper fangs
+    addUpperFang(-0.30, 0.10, 0.40, -0.06);
+    addUpperFang(0.30, 0.10, 0.40, 0.06);
+    // Outer upper fangs
+    addUpperFang(-0.48, 0.075, 0.28, -0.18);
+    addUpperFang(0.48, 0.075, 0.28, 0.18);
+    // Front sharp incisors
+    [-0.15, -0.05, 0.05, 0.15].forEach(x => {
+      addUpperFang(x, 0.055, 0.18);
+    });
+
+    // ── Lower Jaw (Articulated on jawOpen & smile) ──
+    const lowerJaw = new THREE.Group();
+    const JAW_PIVOT_Y = -0.36;
+    const JAW_PIVOT_Z = 0.22;
+    lowerJaw.position.set(0, JAW_PIVOT_Y, JAW_PIVOT_Z);
+    maskGroup.add(lowerJaw);
+
+    // Sculpted Chin
+    const chinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.58, 36, 36), mFace);
+    chinMesh.scale.set(1.08, 0.68, 0.60);
+    chinMesh.position.set(0, -0.34, 0.28);
+    lowerJaw.add(chinMesh);
+
+    // Lower lip (meets upper lip cleanly at rest)
+    const lowerLipCenter = new THREE.Mesh(new THREE.SphereGeometry(0.38, 32, 16), mDark);
+    lowerLipCenter.scale.set(1.35, 0.22, 0.44);
+    lowerLipCenter.position.set(0, -0.08, 0.44);
+    lowerJaw.add(lowerLipCenter);
+
+    // Lower jaw side contours
+    [-1, 1].forEach(side => {
+      const jawSide = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.38, 0.45), mFace);
+      jawSide.position.set(side * 0.64, -0.22, 0.18);
+      jawSide.rotation.y = side * 0.30;
+      lowerJaw.add(jawSide);
+    });
+
+    // Lower fangs & tusks (pointing UPWARD - classic Oni tusks)
+    function addLowerFang(x, r, h, rz = 0) {
+      const t = new THREE.Mesh(new THREE.ConeGeometry(r, h, 16), mTooth);
+      t.position.set(x, h * 0.40 - 0.08, 0.46);
+      t.rotation.z = rz;
+      lowerJaw.add(t);
+      return t;
+    }
+    // Giant lower tusks jutting up
+    addLowerFang(-0.22, 0.105, 0.44, -0.12);
+    addLowerFang(0.22, 0.105, 0.44, 0.12);
+    // Outer lower fangs
+    addLowerFang(-0.40, 0.075, 0.26, -0.22);
+    addLowerFang(0.40, 0.075, 0.26, 0.22);
+    // Lower front teeth
+    [-0.09, 0.0, 0.09].forEach(x => {
+      addLowerFang(x, 0.05, 0.16);
+    });
+
+    // ═══════════════════════════════════════════════
+    //  FACE TRACKING STATE
+    // ═══════════════════════════════════════════════
+    let faceLandmarker = null;
+    let tracking = false;
+    const video = document.getElementById('webcam');
+
+    // Target values (raw from detection)
+    let tX = 0, tY = 0, tZ = 0;
+    let tJaw = 0, tBL = 0, tBR = 0;
+    let tSmile = 0, tSmileL = 0, tSmileR = 0;
+
+    // Smoothed values
+    let sX = 0, sY = 0, sZ = 0;
+    let sJaw = 0, sBL = 0, sBR = 0;
+    let sSmile = 0, sSmileL = 0, sSmileR = 0;
+
+    const mat4 = new THREE.Matrix4();
+    const euler = new THREE.Euler();
+    let lastVT = -1;
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // ═══════════════════════════════════════════════
+    //  START / INIT
+    // ═══════════════════════════════════════════════
+    document.getElementById('start-btn').addEventListener('click', async () => {
+      const loadingMsg = document.getElementById('loading-msg');
+      loadingMsg.classList.add('visible');
+
+      // Load MediaPipe Face Landmarker
+      let vision;
+      try {
+        vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+        );
+      } catch (e) {
+        console.error('FilesetResolver failed:', e);
+        loadingMsg.textContent = 'model load failed.';
+        return;
+      }
+
+      try {
+        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'GPU'
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true
+        });
+      } catch {
+        // GPU delegate failed — fall back to CPU
+        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+            delegate: 'CPU'
+          },
+          runningMode: 'VIDEO',
+          numFaces: 1,
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true
+        });
+      }
+
+      // Request camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: 640, height: 480 },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        tracking = true;
+      } catch (e) {
+        alert('카메라 접근 권한이 필요합니다.');
+        return;
+      }
+
+      // Hide start screen
+      document.getElementById('start-screen').classList.add('hidden');
+    });
+
+    // ═══════════════════════════════════════════════
+    //  ANIMATION
+    // ═══════════════════════════════════════════════
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      // ── Face detection ──
+      if (faceLandmarker && tracking && video.readyState >= 2) {
+        const nowMs = performance.now();
+
+        // Detect once per video frame
+        if (video.currentTime !== lastVT) {
+          lastVT = video.currentTime;
+
+          const res = faceLandmarker.detectForVideo(video, nowMs);
+
+          // Head pose from 4×4 facial transformation matrix
+          if (res.facialTransformationMatrixes?.length > 0) {
+            mat4.fromArray(res.facialTransformationMatrixes[0].data);
+            euler.setFromRotationMatrix(mat4, 'YXZ');
+
+            tX = euler.x * 0.88;   // pitch  (nod up/down)
+            tY = -euler.y * 0.88;   // yaw    (turn left/right) — negated for mirror
+            tZ = euler.z * 0.82;   // roll   (tilt head)
+          }
+
+          // Expression blendshapes
+          if (res.faceBlendshapes && res.faceBlendshapes.length > 0 && res.faceBlendshapes[0].categories) {
+            const cats = res.faceBlendshapes[0].categories;
+            const bScores = {};
+            for (let i = 0; i < cats.length; i++) {
+              bScores[cats[i].categoryName] = cats[i].score;
+            }
+            const get = name => bScores[name] || 0;
+
+            tJaw = get('jawOpen');
+            tBL = get('eyeBlinkLeft');
+            tBR = get('eyeBlinkRight');
+
+            // Smile blendshapes
+            const smL = get('mouthSmileLeft');
+            const smR = get('mouthSmileRight');
+            tSmileL = smL;
+            tSmileR = smR;
+            tSmile = Math.max(smL, smR);
+          }
+        }
+      }
+
+      // ── Smooth interpolation ──
+      const ps = 0.16;   // pose smoothing  (lower = smoother / laggier)
+      const bs = 0.22;   // blink/jaw/smile smoothing
+
+      sX = lerp(sX, tX, ps);
+      sY = lerp(sY, tY, ps);
+      sZ = lerp(sZ, tZ, ps);
+      sJaw = lerp(sJaw, tJaw, bs);
+      sBL = lerp(sBL, tBL, bs);
+      sBR = lerp(sBR, tBR, bs);
+      sSmile = lerp(sSmile, tSmile, bs);
+      sSmileL = lerp(sSmileL, tSmileL, bs);
+      sSmileR = lerp(sSmileR, tSmileR, bs);
+
+      // ── Apply head pose to mask ──
+      maskGroup.rotation.x = sX;
+      maskGroup.rotation.y = sY;
+      maskGroup.rotation.z = sZ;
+
+      // ── Jaw Opening & Smile Reaction ──
+      // Jaw drops and pivots open wide and clean
+      const jawOpenAmount = Math.max(sJaw, sSmile * 0.32);
+      lowerJaw.position.y = JAW_PIVOT_Y - jawOpenAmount * 0.58;
+      lowerJaw.position.z = JAW_PIVOT_Z - jawOpenAmount * 0.12;
+      lowerJaw.rotation.x = jawOpenAmount * 0.36;
+
+      // Lower jaw width expands on smile
+      lowerJaw.scale.x = 1.0 + sSmile * 0.22;
+
+      // ── Upper Mouth & Lip Smile Expression ──
+      upperMouthGroup.scale.x = 1.0 + sSmile * 0.28;
+      upperLipL.position.y = sSmileL * 0.12;
+      upperLipL.rotation.z = sSmileL * 0.32;
+      upperLipR.position.y = sSmileR * 0.12;
+      upperLipR.rotation.z = -sSmileR * 0.32;
+
+      // Cheek marks lift when smiling
+      cheekGroup.position.y = sSmile * 0.08;
+
+      // ── Eyelids slide down to close (squint slightly on smile) ──
+      const effBL = Math.min(1.0, sBL + sSmile * 0.24);
+      const effBR = Math.min(1.0, sBR + sSmile * 0.24);
+      lLid.position.y = lerp(0.23, -0.09, effBL);
+      rLid.position.y = lerp(0.23, -0.09, effBR);
+
+      // Eye glow dims on blink and flares brilliantly on demonic smile!
+      eyeGlow.intensity = (1.1 + sSmile * 1.3) * (1 - Math.max(sBL, sBR) * 0.75);
+
+      // ── Idle float (subtle, always active) ──
+      maskGroup.position.y = Math.sin(elapsed * 0.68) * 0.07;
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // ── Resize ──
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+
+</html>
