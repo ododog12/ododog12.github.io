@@ -25,6 +25,10 @@
             background: #f3d6ad;
             color: #111;
             font-family: "Courier New", monospace;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         /* ================================
@@ -35,7 +39,9 @@
             position: relative;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
+            touch-action: none;
         }
 
         /* ================================
@@ -354,16 +360,27 @@
         @media (max-width: 768px) {
 
             .title {
-                top: 20px;
-                left: 20px;
+                top: 18px;
+                left: 18px;
+                font-size: clamp(2.2rem, 9.5vw, 3.8rem);
+                line-height: 0.82;
             }
 
             .score {
-                top: auto;
-                right: 20px;
-                bottom: 22px;
+                top: 18px;
+                right: 18px;
+                bottom: auto;
+                gap: 16px;
+                font-size: 10px;
+            }
 
-                gap: 20px;
+            .score-item {
+                min-width: 50px;
+            }
+
+            .score-number {
+                font-size: 22px;
+                margin-top: 3px;
             }
 
             .label {
@@ -371,23 +388,93 @@
             }
 
             .guide {
-                display: none;
+                display: block;
+                bottom: 20px;
+                font-size: 9px;
+                letter-spacing: 0.1em;
+                opacity: 0.85;
             }
 
             .floor {
-                bottom: 65px;
+                bottom: 58px;
+                height: 6px;
             }
 
             .cam-preview-container {
-                right: 16px;
-                bottom: 80px;
+                right: 12px;
+                bottom: 68px;
+            }
+
+            .cam-preview-label {
+                font-size: 8px;
+                padding: 1px 4px;
             }
 
             .webcam-video {
-                width: 96px;
-                height: 72px;
+                width: 80px;
+                height: 60px;
+                border-width: 1.5px;
             }
 
+            .splat-text {
+                font-size: 26px;
+                -webkit-text-stroke: 1.5px #111;
+                text-shadow: 2px 2px 0px #111;
+            }
+
+            .hand-cursor {
+                width: 20px;
+                height: 20px;
+                margin-left: -10px;
+                margin-top: -10px;
+                border-width: 2px;
+            }
+
+            .hand-cursor::after {
+                width: 4px;
+                height: 4px;
+                margin-left: -2px;
+                margin-top: -2px;
+            }
+        }
+
+        @media (max-width: 420px) {
+
+            .title {
+                top: 14px;
+                left: 14px;
+                font-size: clamp(1.8rem, 8.5vw, 2.5rem);
+            }
+
+            .score {
+                top: 15px;
+                right: 12px;
+                gap: 12px;
+                font-size: 9px;
+            }
+
+            .score-item {
+                min-width: 42px;
+            }
+
+            .score-number {
+                font-size: 19px;
+            }
+
+            .cam-preview-container {
+                right: 8px;
+                bottom: 64px;
+            }
+
+            .webcam-video {
+                width: 68px;
+                height: 51px;
+            }
+
+            .guide {
+                font-size: 8px;
+                letter-spacing: 0.06em;
+            }
         }
     </style>
 
@@ -629,27 +716,74 @@
             }
 
             updateBoundaries();
-            window.addEventListener('resize', updateBoundaries);
+            window.addEventListener('resize', () => {
+                updateBoundaries();
+                // 화면이 축소되었을 때 초과 토마토 정리
+                const config = getSpawnConfig();
+                while (tomatoes.length > config.limit + 2) {
+                    const excess = tomatoes.shift();
+                    if (excess) {
+                        Composite.remove(world, excess.body);
+                        if (excess.element.parentNode) {
+                            excess.element.parentNode.removeChild(excess.element);
+                        }
+                    }
+                }
+            });
 
             // ----------------------------------------
-            // 2. 토마토 생성 설정 (총 50개 제한 & 110~130px 큼직한 크기)
+            // 2. 토마토 생성 설정 (모바일/태블릿/데스크톱 반응형 갯수 & 크기)
             // ----------------------------------------
-            const TOTAL_TOMATO_LIMIT = 50;
-            let totalSpawned = 0;
+            function getSpawnConfig() {
+                const w = window.innerWidth;
+                if (w <= 480) {
+                    return {
+                        limit: 15,          // 모바일: 15개로 축소하여 화면 쾌적화
+                        minRadius: 22,      // 지름 44px ~ 60px (모바일 최적 크기)
+                        maxRadius: 30,
+                        grabDist: 100,
+                        grabBonus: 45,
+                        particleCount: 16,
+                        swingThreshold: 420,
+                        stainScale: 0.6
+                    };
+                } else if (w <= 768) {
+                    return {
+                        limit: 22,          // 태블릿/대화면 모바일: 22개
+                        minRadius: 30,      // 지름 60px ~ 80px
+                        maxRadius: 40,
+                        grabDist: 140,
+                        grabBonus: 70,
+                        particleCount: 20,
+                        swingThreshold: 550,
+                        stainScale: 0.8
+                    };
+                } else {
+                    return {
+                        limit: 50,          // 데스크톱: 50개 (기존)
+                        minRadius: 55,      // 지름 110px ~ 130px (기존)
+                        maxRadius: 65,
+                        grabDist: 220,
+                        grabBonus: 140,
+                        particleCount: 28,
+                        swingThreshold: 750,
+                        stainScale: 1.0
+                    };
+                }
+            }
+
             let spawnInterval = null;
 
             function spawnTomato(initialX, initialY) {
-                if (totalSpawned >= TOTAL_TOMATO_LIMIT) {
-                    if (spawnInterval) clearInterval(spawnInterval);
+                const config = getSpawnConfig();
+                if (tomatoes.length >= config.limit) {
                     return null;
                 }
 
-                totalSpawned++;
-
-                const radius = Math.floor(Math.random() * 11) + 55;
+                const radius = Math.floor(Math.random() * (config.maxRadius - config.minRadius + 1)) + config.minRadius;
                 const size = radius * 2;
 
-                const margin = radius + 20;
+                const margin = radius + 15;
                 const x = initialX !== undefined ? initialX : Math.random() * (window.innerWidth - margin * 2) + margin;
                 const y = initialY !== undefined ? initialY : -size - Math.random() * 50;
 
@@ -696,10 +830,13 @@
                 return tomatoObj;
             }
 
-            // 약 100ms 간격으로 토마토 생성
+            // 초기 토마토 생성 및 목표 개수 자동 유지 (반응형 제한 수에 맞춰 부드럽게 보충)
             spawnInterval = setInterval(() => {
-                spawnTomato();
-            }, 100);
+                const config = getSpawnConfig();
+                if (tomatoes.length < config.limit) {
+                    spawnTomato();
+                }
+            }, 110);
 
             // ----------------------------------------
             // 3. Hand Tracking & Pinch / Throw 상태 관리
@@ -714,6 +851,7 @@
             let wasPinching = false;
             let grabbedTomato = null;
             let lastThrowTime = 0;
+            let isPointerActive = false;
 
             const SMOOTH_FACTOR = 0.22;
             const THROW_COOLDOWN = 500; // ms: 던진 직후 다시 잡히지 않도록 쿨다운
@@ -742,22 +880,21 @@
                 return { vx, vy, speed };
             }
 
-            // 토마토 잡기 (넉넉한 Grab 반경)
-            const GRAB_DISTANCE = 220;
-
+            // 토마토 잡기 (화면 크기 반응형 Grab 반경)
             function tryGrabTomato() {
                 if (grabbedTomato) return;
                 if (performance.now() - lastThrowTime < THROW_COOLDOWN) return; // 던진 직후 쿨다운 적용
 
+                const config = getSpawnConfig();
                 let best = null;
-                let minD = GRAB_DISTANCE;
+                let minD = config.grabDist;
 
                 for (let i = 0; i < tomatoes.length; i++) {
                     const t = tomatoes[i];
                     if (t.isRemoving || t.isGrabbed) continue;
 
                     const d = Math.hypot(t.body.position.x - currentHandX, t.body.position.y - currentHandY);
-                    if (d < t.radius + 140 && d < minD) {
+                    if (d < t.radius + config.grabBonus && d < minD) {
                         minD = d;
                         best = t;
                     }
@@ -812,12 +949,19 @@
             // ----------------------------------------
             // 4. SPLAT 효과 (파티클 폭발, 누적 얼룩, 팝업 텍스트)
             // ----------------------------------------
-            function createSplatParticles(x, y, count = 28) {
+            function createSplatParticles(x, y) {
+                const config = getSpawnConfig();
+                const count = config.particleCount;
                 const colors = ['#ec3b27', '#941b16', '#ff7767', '#f2543d', '#ffde59', '#c1292e'];
+                const isMob = window.innerWidth <= 768;
+                const minS = isMob ? 4 : 6;
+                const maxS = isMob ? 8 : 13;
+                const velScale = isMob ? 0.75 : 1.0;
+
                 for (let i = 0; i < count; i++) {
                     const p = document.createElement('div');
                     p.className = 'pixel-particle';
-                    const s = 6 + Math.floor(Math.random() * 8); // 6~13px 정사각형 픽셀
+                    const s = minS + Math.floor(Math.random() * (maxS - minS + 1));
                     p.style.width = `${s}px`;
                     p.style.height = `${s}px`;
                     p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
@@ -825,11 +969,11 @@
 
                     stage.appendChild(p);
 
-                    let px = x + (Math.random() - 0.5) * 20;
-                    let py = y + (Math.random() - 0.5) * 20;
-                    let vx = (Math.random() - 0.5) * 26;
-                    let vy = (Math.random() - 0.7) * 26 - 4;
-                    const gravity = 0.65;
+                    let px = x + (Math.random() - 0.5) * (16 * velScale);
+                    let py = y + (Math.random() - 0.5) * (16 * velScale);
+                    let vx = (Math.random() - 0.5) * (26 * velScale);
+                    let vy = ((Math.random() - 0.7) * 26 - 4) * velScale;
+                    const gravity = 0.65 * velScale;
                     let life = 1.0;
                     const decay = 0.02 + Math.random() * 0.025;
 
@@ -858,13 +1002,18 @@
                 stain.style.left = `${x}px`;
                 stain.style.top = `${y}px`;
 
+                const config = getSpawnConfig();
                 const colors = ['#941b16', '#c1292e', '#ec3b27', '#6b100d'];
-                const count = 12 + Math.floor(Math.random() * 6);
+                const count = Math.round((12 + Math.floor(Math.random() * 6)) * config.stainScale);
+                const isMob = window.innerWidth <= 768;
+                const minS = isMob ? 4 : 7;
+                const maxS = isMob ? 8 : 15;
+
                 for (let i = 0; i < count; i++) {
                     const px = document.createElement('div');
-                    const s = 7 + Math.floor(Math.random() * 9);
-                    const ox = (Math.random() - 0.5) * 56;
-                    const oy = (Math.random() - 0.5) * 40;
+                    const s = minS + Math.floor(Math.random() * (maxS - minS + 1));
+                    const ox = (Math.random() - 0.5) * (56 * config.stainScale);
+                    const oy = (Math.random() - 0.5) * (40 * config.stainScale);
                     px.style.position = 'absolute';
                     px.style.left = `${ox}px`;
                     px.style.top = `${oy}px`;
@@ -954,7 +1103,7 @@
                 tomatoes.splice(tomatoIdx, 1);
 
                 // 시각 효과 트리거
-                createSplatParticles(impactX, impactY, 28);
+                createSplatParticles(impactX, impactY);
                 createPixelStain(impactX, impactY);
                 showSplatText(impactX, impactY);
             }
@@ -982,10 +1131,10 @@
             // ----------------------------------------
             // 6. 렌더 루프 및 자동 휘두르기 던지기(Swing-to-Throw) 감지
             // ----------------------------------------
-            // 처음 사용자도 가볍게 휘둘러 던질 수 있도록 임계값 설정 (750 px/s)
-            const SWING_SPEED_THRESHOLD = 750;
-
             function renderLoop() {
+                const config = getSpawnConfig();
+                const currentSwingThreshold = config.swingThreshold;
+
                 if (isHandDetected) {
                     currentHandX += (targetHandX - currentHandX) * SMOOTH_FACTOR;
                     currentHandY += (targetHandY - currentHandY) * SMOOTH_FACTOR;
@@ -1004,7 +1153,7 @@
                     // 1) 토마토를 잡은 상태: 손을 빠르게 휘두르면 Pinch를 풀 필요 없이 자동 Throw!
                     if (grabbedTomato) {
                         const { vx, vy, speed } = getHandVelocity();
-                        if (speed > SWING_SPEED_THRESHOLD) {
+                        if (speed > currentSwingThreshold) {
                             throwTomato(vx, vy);
                         } else if (!isPinching) {
                             // Pinch를 풀었을 때도 자연스럽게 놓기
@@ -1018,6 +1167,27 @@
                     }
 
                     wasPinching = isPinching;
+                } else if (isPointerActive) {
+                    // 마우스 또는 터치 드래그 상태
+                    currentHandX = targetHandX;
+                    currentHandY = targetHandY;
+                    pushHandHistory(currentHandX, currentHandY);
+
+                    cursorEl.style.transform = `translate3d(${currentHandX}px, ${currentHandY}px, 0)`;
+                    cursorEl.style.opacity = '1';
+                    cursorEl.classList.add('pinching');
+
+                    if (grabbedTomato) {
+                        const { vx, vy, speed } = getHandVelocity();
+                        if (speed > currentSwingThreshold * 1.3) {
+                            // 빠른 스와이프 플링
+                            throwTomato(vx, vy);
+                            isPointerActive = false;
+                            isPinching = false;
+                        }
+                    } else if (isPinching) {
+                        tryGrabTomato();
+                    }
                 } else {
                     cursorEl.style.opacity = '0';
                     cursorEl.classList.remove('pinching');
@@ -1034,10 +1204,11 @@
             requestAnimationFrame(renderLoop);
 
             // ----------------------------------------
-            // 7. 마우스 인터랙션 보조 (웹캠 미연결 또는 테스트용)
+            // 7. 마우스 및 모바일 터치 인터랙션 지원
             // ----------------------------------------
             window.addEventListener('mousedown', (e) => {
                 if (!isHandDetected) {
+                    isPointerActive = true;
                     targetHandX = e.clientX;
                     targetHandY = e.clientY;
                     currentHandX = e.clientX;
@@ -1049,14 +1220,63 @@
             });
 
             window.addEventListener('mousemove', (e) => {
-                if (!isHandDetected) {
+                if (!isHandDetected && isPointerActive) {
                     targetHandX = e.clientX;
                     targetHandY = e.clientY;
                 }
             });
 
             window.addEventListener('mouseup', () => {
-                if (!isHandDetected && isPinching) {
+                if (!isHandDetected && isPointerActive) {
+                    isPointerActive = false;
+                    isPinching = false;
+                    if (grabbedTomato) {
+                        const { vx, vy } = getHandVelocity();
+                        throwTomato(vx, vy);
+                    }
+                }
+            });
+
+            // 터치 이벤트 지원 (모바일 화면 직접 터치 & 플링 스와이프 던지기)
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0 && !isHandDetected) {
+                    const touch = e.touches[0];
+                    isPointerActive = true;
+                    targetHandX = touch.clientX;
+                    targetHandY = touch.clientY;
+                    currentHandX = touch.clientX;
+                    currentHandY = touch.clientY;
+                    pushHandHistory(currentHandX, currentHandY);
+                    isPinching = true;
+                    tryGrabTomato();
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0 && isPointerActive) {
+                    const touch = e.touches[0];
+                    targetHandX = touch.clientX;
+                    targetHandY = touch.clientY;
+                    if (grabbedTomato && e.cancelable) {
+                        e.preventDefault(); // 토마토 조작 중 스크롤 방지
+                    }
+                }
+            }, { passive: false });
+
+            window.addEventListener('touchend', () => {
+                if (isPointerActive) {
+                    isPointerActive = false;
+                    isPinching = false;
+                    if (grabbedTomato) {
+                        const { vx, vy } = getHandVelocity();
+                        throwTomato(vx, vy);
+                    }
+                }
+            });
+
+            window.addEventListener('touchcancel', () => {
+                if (isPointerActive) {
+                    isPointerActive = false;
                     isPinching = false;
                     if (grabbedTomato) {
                         const { vx, vy } = getHandVelocity();
@@ -1099,8 +1319,9 @@
                         // 엄지와 검지 끝 사이의 거리 계산
                         const pinchDist = Math.hypot(tX - iX, tY - iY);
 
-                        // 손가락 오므림(Pinch) 감지 (82px 미만)
-                        isPinching = pinchDist < 82;
+                        // 손가락 오므림(Pinch) 감지 (화면 크기에 비례하는 적응형 임계값)
+                        const pinchDistThreshold = Math.min(82, window.innerWidth * 0.12);
+                        isPinching = pinchDist < pinchDistThreshold;
                         isHandDetected = true;
                         lastDetectedTime = performance.now();
                     }
