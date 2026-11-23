@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pure CSS Filter Gallery (4x3)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="gallery-container">
+    <header class="gallery-header">
+      <span class="badge">Pure CSS Gallery</span>
+      <h1 class="title">Filtering Image Gallery</h1>
+      <p class="subtitle">자바스크립트 없이 <strong>CSS Radio Hack</strong>과 <strong>:checked</strong> 가상 선택자만으로 동작하는 4×3 필터링 갤러리입니다.</p>
+    </header>
+
+    <!-- [핵심] 순수 CSS 필터링을 위한 숨겨진 라디오 버튼들 -->
+    <input type="radio" name="category" id="filter-all" class="filter-radio" checked>
+    <input type="radio" name="category" id="filter-nature" class="filter-radio">
+    <input type="radio" name="category" id="filter-architecture" class="filter-radio">
+    <input type="radio" name="category" id="filter-animals" class="filter-radio">
+
+    <!-- 필터 버튼 (라디오 버튼과 연결된 label 태그) -->
+    <nav class="filter-bar">
+      <label for="filter-all" class="filter-btn">
+        <span>전체보기 (All)</span>
+        <span class="count">12</span>
+      </label>
+      <label for="filter-nature" class="filter-btn">
+        <span>자연 (Nature)</span>
+        <span class="count">4</span>
+      </label>
+      <label for="filter-architecture" class="filter-btn">
+        <span>건축 (Architecture)</span>
+        <span class="count">4</span>
+      </label>
+      <label for="filter-animals" class="filter-btn">
+        <span>동물 (Animals)</span>
+        <span class="count">4</span>
+      </label>
+    </nav>
+
+    <!-- 4x3 이미지 갤러리 그리드 (총 12개) -->
+    <main class="gallery-grid">
+      <!-- 1. Nature -->
+      <article class="gallery-item nature">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=700&q=80" alt="알프스 설산과 호수" loading="lazy">
+          <span class="tag">Nature</span>
+        </div>
+        <div class="item-info">
+          <h3>알프스 설산</h3>
+          <p>웅장한 설산과 맑은 호수의 풍경</p>
+        </div>
+      </article>
+
+      <!-- 2. Architecture -->
+      <article class="gallery-item architecture">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=700&q=80" alt="도심 고층 빌딩" loading="lazy">
+          <span class="tag">Architecture</span>
+        </div>
+        <div class="item-info">
+          <h3>모던 마천루</h3>
+          <p>하늘을 찌를 듯한 유리벽 고층 빌딩</p>
+        </div>
+      </article>
+
+      <!-- 3. Animals -->
+      <article class="gallery-item animals">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1516934024742-b461fba47600?auto=format&fit=crop&w=700&q=80" alt="눈밭의 붉은 여우" loading="lazy">
+          <span class="tag">Animals</span>
+        </div>
+        <div class="item-info">
+          <h3>눈밭의 여우</h3>
+          <p>새하얀 설원 속 선명한 붉은 털의 여우</p>
+        </div>
+      </article>
+
+      <!-- 4. Nature -->
+      <article class="gallery-item nature">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=700&q=80" alt="울창한 피톤치드 숲" loading="lazy">
+          <span class="tag">Nature</span>
+        </div>
+        <div class="item-info">
+          <h3>초록빛 삼림</h3>
+          <p>아침 햇살이 스며드는 신비로운 숲</p>
+        </div>
+      </article>
+
+      <!-- 5. Architecture -->
+      <article class="gallery-item architecture">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=700&q=80" alt="기하학적 건축물 내부" loading="lazy">
+          <span class="tag">Architecture</span>
+        </div>
+        <div class="item-info">
+          <h3>기하학 인테리어</h3>
+          <p>빛과 선이 조화를 이루는 모던 건축</p>
+        </div>
+      </article>
+
+      <!-- 6. Animals -->
+      <article class="gallery-item animals">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1534188753412-3e26d0d618d6?auto=format&fit=crop&w=700&q=80" alt="늠름한 벵골 호랑이" loading="lazy">
+          <span class="tag">Animals</span>
+        </div>
+        <div class="item-info">
+          <h3>벵골 호랑이</h3>
+          <p>카리스마 넘치는 시선의 맹수</p>
+        </div>
+      </article>
+
+      <!-- 7. Nature -->
+      <article class="gallery-item nature">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80" alt="에메랄드빛 열대 해변" loading="lazy">
+          <span class="tag">Nature</span>
+        </div>
+        <div class="item-info">
+          <h3>에메랄드 해변</h3>
+          <p>부드러운 백사장과 투명한 바다</p>
+        </div>
+      </article>
+
+      <!-- 8. Architecture -->
+      <article class="gallery-item architecture">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=700&q=80" alt="나선형 계단" loading="lazy">
+          <span class="tag">Architecture</span>
+        </div>
+        <div class="item-info">
+          <h3>나선형 계단</h3>
+          <p>위에서 내려다본 연속적인 기하학 곡선</p>
+        </div>
+      </article>
+
+      <!-- 9. Animals -->
+      <article class="gallery-item animals">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1452570053594-1b985d6ea890?auto=format&fit=crop&w=700&q=80" alt="다채로운 깃털의 새" loading="lazy">
+          <span class="tag">Animals</span>
+        </div>
+        <div class="item-info">
+          <h3>화려한 깃털</h3>
+          <p>자연이 만들어낸 생생한 색감의 조류</p>
+        </div>
+      </article>
+
+      <!-- 10. Nature -->
+      <article class="gallery-item nature">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?auto=format&fit=crop&w=700&q=80" alt="거대한 폭포" loading="lazy">
+          <span class="tag">Nature</span>
+        </div>
+        <div class="item-info">
+          <h3>웅장한 폭포</h3>
+          <p>시원하게 쏟아져 내리는 거대한 물줄기</p>
+        </div>
+      </article>
+
+      <!-- 11. Architecture -->
+      <article class="gallery-item architecture">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=700&q=80" alt="도시의 스카이라인 야경" loading="lazy">
+          <span class="tag">Architecture</span>
+        </div>
+        <div class="item-info">
+          <h3>도시의 야경</h3>
+          <p>황금빛 조명으로 물든 대도시 파노라마</p>
+        </div>
+      </article>
+
+      <!-- 12. Animals -->
+      <article class="gallery-item animals">
+        <div class="thumb-box">
+          <img src="https://images.unsplash.com/photo-1484406566174-9da000fda645?auto=format&fit=crop&w=700&q=80" alt="숲속의 사슴" loading="lazy">
+          <span class="tag">Animals</span>
+        </div>
+        <div class="item-info">
+          <h3>숲속의 사슴</h3>
+          <p>고요한 아침 안개 속의 우아한 사슴</p>
+        </div>
+      </article>
+    </main>
+  </div>
+
+</body>
+</html>
