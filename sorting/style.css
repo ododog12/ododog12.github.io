@@ -1,0 +1,405 @@
+/* ===================================================
+   기본 리셋 및 디자인 토큰
+   =================================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+
+  /* 테마 컬러 */
+  --nature-color: #10b981;
+  --nature-light: #ecfdf5;
+  --city-color: #3b82f6;
+  --city-light: #eff6ff;
+  --animal-color: #f97316;
+  --animal-light: #fff7ed;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 20px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+  padding: 40px 20px 80px;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ===================================================
+   헤더 영역
+   =================================================== */
+.header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+}
+
+/* ===================================================
+   체크박스 컨트롤러 (숨김 처리)
+   =================================================== */
+.filter-checkbox {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+/* ===================================================
+   체크박스 필터 바 & 라벨 버튼
+   =================================================== */
+.pure-css-filter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.filter-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  background-color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 50px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 40px;
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.filter-btn:hover {
+  background-color: #f1f5f9;
+  color: var(--text-main);
+}
+
+/* 커스텀 체크박스 인디케이터 */
+.chk-box {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid #cbd5e1;
+  background-color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: var(--transition);
+}
+
+.chk-box::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chk-count {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #f1f5f9;
+  color: var(--text-muted);
+  font-weight: 700;
+  transition: var(--transition);
+}
+
+.filter-guide {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 36px;
+  text-align: center;
+}
+
+/* ===================================================
+   [핵심] 순수 CSS 체크박스 필터링 로직
+   =================================================== */
+
+/* 1. 체크 상태일 때 라벨(버튼) 스타일 변경 */
+/* 자연 (Nature) */
+#filter-nature:checked ~ .filter-bar .label-nature {
+  background-color: var(--nature-light);
+  color: var(--nature-color);
+  border-color: var(--nature-color);
+}
+#filter-nature:checked ~ .filter-bar .label-nature .chk-box {
+  background-color: var(--nature-color);
+  border-color: var(--nature-color);
+}
+#filter-nature:checked ~ .filter-bar .label-nature .chk-box::after {
+  opacity: 1;
+}
+#filter-nature:checked ~ .filter-bar .label-nature .chk-count {
+  background-color: var(--nature-color);
+  color: #ffffff;
+}
+
+/* 도시 (City) */
+#filter-city:checked ~ .filter-bar .label-city {
+  background-color: var(--city-light);
+  color: var(--city-color);
+  border-color: var(--city-color);
+}
+#filter-city:checked ~ .filter-bar .label-city .chk-box {
+  background-color: var(--city-color);
+  border-color: var(--city-color);
+}
+#filter-city:checked ~ .filter-bar .label-city .chk-box::after {
+  opacity: 1;
+}
+#filter-city:checked ~ .filter-bar .label-city .chk-count {
+  background-color: var(--city-color);
+  color: #ffffff;
+}
+
+/* 동물 (Animal) */
+#filter-animal:checked ~ .filter-bar .label-animal {
+  background-color: var(--animal-light);
+  color: var(--animal-color);
+  border-color: var(--animal-color);
+}
+#filter-animal:checked ~ .filter-bar .label-animal .chk-box {
+  background-color: var(--animal-color);
+  border-color: var(--animal-color);
+}
+#filter-animal:checked ~ .filter-bar .label-animal .chk-box::after {
+  opacity: 1;
+}
+#filter-animal:checked ~ .filter-bar .label-animal .chk-count {
+  background-color: var(--animal-color);
+  color: #ffffff;
+}
+
+/* 2. 필터 체크박스가 하나라도 체크되면, 기본적으로 모든 아이템 숨김 */
+#filter-nature:checked ~ .gallery-grid .gallery-item,
+#filter-city:checked ~ .gallery-grid .gallery-item,
+#filter-animal:checked ~ .gallery-grid .gallery-item {
+  display: none;
+}
+
+/* 3. 체크된 항목의 카테고리만 노출 */
+#filter-nature:checked ~ .gallery-grid .item-nature {
+  display: flex;
+  animation: fadeIn 0.35s ease forwards;
+}
+
+#filter-city:checked ~ .gallery-grid .item-city {
+  display: flex;
+  animation: fadeIn 0.35s ease forwards;
+}
+
+#filter-animal:checked ~ .gallery-grid .item-animal {
+  display: flex;
+  animation: fadeIn 0.35s ease forwards;
+}
+
+/* ===================================================
+   갤러리 5x4 그리드 레이아웃
+   =================================================== */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5열 그리드 */
+  gap: 22px;
+  width: 100%;
+}
+
+.gallery-item {
+  background-color: var(--card-bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.gallery-item:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 썸네일 박스 */
+.thumb-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background-color: #e2e8f0;
+}
+
+.thumb-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.gallery-item:hover .thumb-box img {
+  transform: scale(1.08);
+}
+
+/* 카테고리 뱃지 */
+.badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  backdrop-filter: blur(6px);
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.badge-nature {
+  background-color: rgba(16, 185, 129, 0.9);
+}
+
+.badge-city {
+  background-color: rgba(59, 130, 246, 0.9);
+}
+
+.badge-animal {
+  background-color: rgba(249, 115, 22, 0.9);
+}
+
+/* 카드 정보 텍스트 */
+.item-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.item-info h3 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-info p {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===================================================
+   애니메이션
+   =================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ===================================================
+   반응형 미디어 쿼리
+   =================================================== */
+@media (max-width: 1280px) {
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .title {
+    font-size: 1.85rem;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 24px 16px 60px;
+  }
+
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .filter-bar {
+    width: 100%;
+    border-radius: var(--radius-sm);
+  }
+
+  .filter-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}

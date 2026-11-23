@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>순수 CSS 체크박스 필터 갤러리 (5x4)</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Pretendard 폰트 -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- 헤더 영역 -->
+    <header class="header">
+      <h1 class="title">순수 CSS 필터 갤러리</h1>
+      <p class="subtitle">체크박스를 클릭하면 JavaScript 없이 순수 CSS로만 조건에 맞는 리스트를 보여줍니다.</p>
+    </header>
+
+    <!-- 순수 CSS 제어 컨테이너 -->
+    <div class="pure-css-filter">
+      <!-- 1. 필터 제어용 체크박스 3개 (화면에서는 숨김 처리) -->
+      <input type="checkbox" id="filter-nature" class="filter-checkbox">
+      <input type="checkbox" id="filter-city" class="filter-checkbox">
+      <input type="checkbox" id="filter-animal" class="filter-checkbox">
+
+      <!-- 2. 체크박스 라벨 버튼 영역 -->
+      <div class="filter-bar">
+        <label for="filter-nature" class="filter-btn label-nature">
+          <span class="chk-box"></span>
+          <span class="chk-text">자연 (Nature)</span>
+          <span class="chk-count">7</span>
+        </label>
+
+        <label for="filter-city" class="filter-btn label-city">
+          <span class="chk-box"></span>
+          <span class="chk-text">도시 (City)</span>
+          <span class="chk-count">7</span>
+        </label>
+
+        <label for="filter-animal" class="filter-btn label-animal">
+          <span class="chk-box"></span>
+          <span class="chk-text">동물 (Animal)</span>
+          <span class="chk-count">6</span>
+        </label>
+      </div>
+
+      <!-- 상태 안내 텍스트 -->
+      <p class="filter-guide">
+        💡 체크박스를 선택하면 해당 카테고리만 노출되며, 다중 선택도 가능합니다. (미선택 시 전체 20개 노출)
+      </p>
+
+      <!-- 3. 5x4 (총 20개) 갤러리 그리드 리스트 -->
+      <main class="gallery-grid">
+        <!-- 1. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop" alt="에메랄드빛 해변" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>에메랄드빛 해변</h3>
+            <p>푸른 파도와 하얀 백사장의 풍경</p>
+          </div>
+        </article>
+
+        <!-- 2. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=600&auto=format&fit=crop" alt="시카고 스카이라인" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>도심 스카이라인</h3>
+            <p>고층 빌딩 숲과 도시의 전경</p>
+          </div>
+        </article>
+
+        <!-- 3. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1474511320723-9a56873ee678?w=600&auto=format&fit=crop" alt="야생 붉은 여우" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>야생 붉은 여우</h3>
+            <p>자연 속에서 호기심 어린 여우</p>
+          </div>
+        </article>
+
+        <!-- 4. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=600&auto=format&fit=crop" alt="안개 낀 산맥" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>신비로운 산맥</h3>
+            <p>아침 안개로 둘러싸인 고요한 산</p>
+          </div>
+        </article>
+
+        <!-- 5. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop" alt="현대적인 고층 빌딩" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>현대 건축의 미학</h3>
+            <p>하늘을 찌를 듯한 현대식 마천루</p>
+          </div>
+        </article>
+
+        <!-- 6. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1534188753412-3e26d0d618d6?w=600&auto=format&fit=crop" alt="위엄 있는 사자" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>초원의 왕 사자</h3>
+            <p>카리스마 넘치는 맹수의 눈빛</p>
+          </div>
+        </article>
+
+        <!-- 7. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&auto=format&fit=crop" alt="울창한 숲속 햇살" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>햇살 쏟아지는 숲</h3>
+            <p>나뭇잎 사이로 내리쬐는 따스한 햇빛</p>
+          </div>
+        </article>
+
+        <!-- 8. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&auto=format&fit=crop" alt="런던의 거리 풍경" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>런던의 클래식 거리</h3>
+            <p>역사와 전통이 깃든 유럽의 거리</p>
+          </div>
+        </article>
+
+        <!-- 9. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop" alt="귀여운 고양이" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>호기심 많은 고양이</h3>
+            <p>동그란 눈망울로 바라보는 냥이</p>
+          </div>
+        </article>
+
+        <!-- 10. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=600&auto=format&fit=crop" alt="협곡과 절벽" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>웅장한 자연 협곡</h3>
+            <p>거대한 절벽과 대자연의 파노라마</p>
+          </div>
+        </article>
+
+        <!-- 11. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1514565131-fce0801e5785?w=600&auto=format&fit=crop" alt="도시의 네온 야경" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>화려한 네온 야경</h3>
+            <p>밤을 밝히는 도심의 불빛들</p>
+          </div>
+        </article>
+
+        <!-- 12. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=600&auto=format&fit=crop" alt="사랑스러운 강아지" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>활발한 반려견</h3>
+            <p>맑고 순수한 미소를 짓는 강아지</p>
+          </div>
+        </article>
+
+        <!-- 13. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=600&auto=format&fit=crop" alt="노을 지는 초원" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>황금빛 들판 노을</h3>
+            <p>해질녘 따뜻한 빛으로 물든 들판</p>
+          </div>
+        </article>
+
+        <!-- 14. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop" alt="파리 에펠탑 풍경" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>낭만의 파리 전경</h3>
+            <p>에펠탑이 한눈에 보이는 도시 풍경</p>
+          </div>
+        </article>
+
+        <!-- 15. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&auto=format&fit=crop" alt="골든 리트리버" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>다정한 리트리버</h3>
+            <p>충성스럽고 다정한 골든 리트리버</p>
+          </div>
+        </article>
+
+        <!-- 16. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=600&auto=format&fit=crop" alt="숲속 나무와 빛" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>생명의 숲길</h3>
+            <p>피톤치드 가득한 깊은 숲의 향기</p>
+          </div>
+        </article>
+
+        <!-- 17. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=600&auto=format&fit=crop" alt="뉴욕 타임스퀘어" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>잠들지 않는 뉴욕</h3>
+            <p>생동감 넘치는 타임스퀘어의 거리</p>
+          </div>
+        </article>
+
+        <!-- 18. 동물 (Animal) -->
+        <article class="gallery-item item-animal" data-category="animal">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=600&auto=format&fit=crop" alt="야생 맹수의 초상" loading="lazy">
+            <span class="badge badge-animal">동물</span>
+          </div>
+          <div class="item-info">
+            <h3>사바나의 포효</h3>
+            <p>아프리카 초원의 웅장한 야생동물</p>
+          </div>
+        </article>
+
+        <!-- 19. 자연 (Nature) -->
+        <article class="gallery-item item-nature" data-category="nature">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop" alt="설산 봉우리" loading="lazy">
+            <span class="badge badge-nature">자연</span>
+          </div>
+          <div class="item-info">
+            <h3>만년설 고봉</h3>
+            <p>구름을 뚫고 솟은 장엄한 설산</p>
+          </div>
+        </article>
+
+        <!-- 20. 도시 (City) -->
+        <article class="gallery-item item-city" data-category="city">
+          <div class="thumb-box">
+            <img src="https://images.unsplash.com/photo-1444723121867-7a241cacace9?w=600&auto=format&fit=crop" alt="도시의 현수교와 바다" loading="lazy">
+            <span class="badge badge-city">도시</span>
+          </div>
+          <div class="item-info">
+            <h3>대교와 항만 도시</h3>
+            <p>바다를 가로지르는 웅장한 현수교</p>
+          </div>
+        </article>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
