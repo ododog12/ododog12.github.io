@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="12주차 인터랙티브반 실습: 실업률 시각화 페이지">
+  <title>실업률 변화 살펴보기 | 12주차 공통 실습</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="데이터 스토리 첫 화면">DATA<span class="brand-mark">/</span>STORY</a>
+    <nav aria-label="페이지 이동">
+      <a href="#overview">개요</a>
+      <a href="#unemployment-compare-section">연도 비교</a>
+      <a href="#notes">자료 안내</a>
+    </nav>
+    <span class="course-label">WEEK 12 · INTERACTIVE</span>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="overview" aria-labelledby="hero-title">
+      <div class="hero-content">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> DATA VISUALIZATION / PRACTICE</div>
+        <h1 id="hero-title">숫자가 바뀌면,<br><em>이야기도 달라진다.</em></h1>
+        <p class="hero-description">실업률 수치를 비교하는 인터랙티브 데이터 페이지입니다. 연도를 선택하면 수치·설명·그래프가 함께 달라지는 기능을 추가하는 실습에 사용합니다.</p>
+        <a class="hero-link" href="#unemployment-compare-section">데이터 비교 살펴보기 <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-visual-label">UNEMPLOYMENT RATE</div>
+        <div class="hero-big-number">4.2<span>%</span></div>
+        <div class="hero-lines"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hero-foot">SAMPLE DATA · YEAR A</div>
+      </div>
+    </section>
+
+    <section class="intro-strip" aria-label="데이터 안내">
+      <div><span class="strip-label">DATA TYPE</span><strong>가상 실습 데이터</strong></div>
+      <div><span class="strip-label">PERIOD</span><strong>연도 A / 연도 B</strong></div>
+      <div><span class="strip-label">FOCUS</span><strong>선택에 따른 콘텐츠 변경</strong></div>
+    </section>
+
+    <section class="compare-section reveal" id="unemployment-compare-section" aria-labelledby="compare-title">
+      <div class="section-topline"><span>01 / INTERACTION</span><span>SELECT & CHANGE</span></div>
+      <div class="compare-heading">
+        <div>
+          <p class="overline">YEARLY COMPARISON</p>
+          <h2 id="compare-title">연도별 실업률 비교</h2>
+          <p class="section-lead">연도를 선택하면 실업률 수치와 설명, 그래프가 함께 변경됩니다.</p>
+        </div>
+        <div class="year-selector" role="group" aria-label="연도 선택">
+          <button type="button" class="year-button-a active" aria-pressed="true">연도 A</button>
+          <button type="button" class="year-button-b" aria-pressed="false">연도 B</button>
+        </div>
+      </div>
+
+      <div class="year-content">
+        <article class="metric-panel" aria-labelledby="rate-label">
+          <span class="metric-kicker" id="rate-label">SELECTED PERIOD / <span class="year-label">YEAR A</span></span>
+          <div class="year-rate">4.2<span>%</span></div>
+          <div class="metric-rule"></div>
+          <h3 class="metric-title">연도 A의 실업률 변화</h3>
+          <p class="year-description">연도 A를 선택한 초기 화면입니다. 학습용 수치를 기반으로 그래프와 설명이 표시됩니다.</p>
+          <div class="metric-note">이 페이지의 모든 수치는 실제 통계가 아닌 가상 데이터입니다.</div>
+        </article>
+        <div class="chart-panel">
+          <div class="chart-header"><strong>UNEMPLOYMENT TREND</strong><span>단위: % / 예시</span></div>
+          <div class="chart-image-wrap"><img class="year-chart" src="images/year-a.svg" alt="가상 데이터 연도 A 실업률 추이 그래프"></div>
+          <div class="chart-footer"><span>연도 A</span><span class="chart-status">연도 A 그래프가 표시 중입니다.</span></div>
+        </div>
+      </div>
+      <p class="practice-status" role="status"><span class="status-dot"></span> 표시되는 모든 수치는 학습용 가상 데이터입니다.</p>
+    </section>
+
+    <section class="insight-section reveal" id="notes">
+      <div class="section-topline"><span>02 / PROJECT NOTES</span><span>ABOUT THE DATA</span></div>
+      <div class="insight-layout">
+        <div><p class="overline">READ BEFORE USE</p><h2>데이터를 다룰 때<br>확인할 것</h2></div>
+        <div class="insight-list">
+          <article><span>01</span><div><h3>수치의 출처</h3><p>실제 프로젝트에서는 공식 통계 자료의 출처를 확인해야 합니다.</p></div></article>
+          <article><span>02</span><div><h3>시각적 표현</h3><p>값을 바꾸면 설명과 그래프도 동일한 데이터로 갱신해야 합니다.</p></div></article>
+          <article><span>03</span><div><h3>기존 디자인 유지</h3><p>새 기능을 추가해도 다른 섹션의 구조와 스타일은 유지합니다.</p></div></article>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><strong>DATA/STORY</strong><span>WEEK 12 · STUDENT PRACTICE FILE</span><span>HTML · CSS · JAVASCRIPT</span></footer>
+  <script src="js/script.js"></script>
+</body>
+</html>
