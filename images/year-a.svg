@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 390" role="img" aria-label="연도 A 실습용 가상 실업률 추이">
-<rect width="720" height="390" rx="16" fill="#f5f8f6"/>
-<g stroke="#d7e4e1" stroke-width="1"><path d="M68 70H662M68 130H662M68 190H662M68 250H662M68 310H662"/></g>
-<g fill="#869b9f" font-family="Arial,sans-serif" font-size="14"><text x="23" y="75">6%</text><text x="23" y="135">5%</text><text x="23" y="195">4%</text><text x="23" y="255">3%</text><text x="23" y="315">2%</text><text x="85" y="349">A-4</text><text x="200" y="349">A-3</text><text x="315" y="349">A-2</text><text x="430" y="349">A-1</text><text x="550" y="349">A</text></g>
-<path d="M100 214 L215 180 L330 215 L445 153 L560 178" fill="none" stroke="#216e83" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
-<g fill="#216e83" stroke="#f5f8f6" stroke-width="5"><circle cx="100" cy="214" r="9"/><circle cx="215" cy="180" r="9"/><circle cx="330" cy="215" r="9"/><circle cx="445" cy="153" r="9"/><circle cx="560" cy="178" r="9"/></g>
-<rect x="548" y="112" width="95" height="38" rx="19" fill="#216e83"/><text x="596" y="137" fill="white" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="bold">4.2%</text>
-</svg>
